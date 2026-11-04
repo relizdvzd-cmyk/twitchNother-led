@@ -3,6 +3,7 @@ import {APP_OFFSET,assertRelease,assertImage,assertChipAndFlash,parsePartitions,
 const $=id=>document.getElementById(id);
 const logEl=$('log');
 let release=null,image=null,loader=null,transport=null,ready=false,busy=false;
+let phase='ожидание';
 let lastPercent=-1;
 function log(msg){
   if(logEl.textContent==='Ожидание...')logEl.textContent='';
@@ -55,19 +56,36 @@ $('connect').addEventListener('click',async()=>{
   busy=true;controls();state('Проверяю ESP32...');
   try{
     // The port selector MUST be invoked immediately in the user click gesture.
+    phase='выбор COM-порта';
+    log('Этап 1/6: выбор USB-порта (запись в Flash НЕ производится).');
     const port=await navigator.serial.requestPort();
+    const info=port.getInfo();
+    log('COM выбран: VID '+(info.usbVendorId??'неизвестен')+', PID '+(info.usbProductId??'неизвестен'));
+    phase='загрузка библиотеки';
     const m=await import('https://unpkg.com/esptool-js@0.7.1/bundle.js');
     if(!m.ESPLoader||!m.Transport)throw Error('Библиотека esptool-js недоступна.');
-    transport=new m.Transport(port,true);
-    const terminal={clean(){},write(){},writeLine(s){if(/chip|flash|error|sync|stub|connect/i.test(s))log(String(s).trim().slice(0,180));}};
+    transport=new m.Transport(port,false);
+    const terminal={clean(){},write(){},writeLine(s){const t=String(s).trim();if(t&&/chip|flash|error|sync|stub|connect|reset|ESP32/i.test(t))log('esptool: '+t.slice(0,180));}};
     loader=new m.ESPLoader({transport,baudrate:115200,terminal,debugLogging:false});
-    const result=await loader.main();
+    phase='синхронизация ROM / загрузка stub';
+    const manual=Boolean($('manualBoot').checked);
+    log('Этап 2/6: '+(manual?'ручной режим BOOT, без DTR/RTS (no_reset)':'автоматический сброс DTR/RTS (default_reset)')+'.');
+    const result=await loader.main(manual?'no_reset':'default_reset');
+    log('Этап 2/6: соединение с загрузчиком установлено.');
     const chip=String(result||loader.chip?.CHIP_NAME||'');
+    phase='определение Flash';
+    log('Этап 3/6: определяю размер памяти Flash.');
     const flash=await loader.detectFlashSize();
     assertChipAndFlash(chip,flash);
     log('Определено: '+chip+' / '+flash);
+    phase='чтение заголовка загрузчика 0x1000';
+    log('Этап 4/6: читаю 16 байт загрузчика (только чтение).');
     const boot=await loader.readFlash(0x1000,16);
+    phase='чтение таблицы разделов 0x8000';
+    log('Этап 5/6: читаю таблицу разделов (только чтение).');
     const parts=parsePartitions(await loader.readFlash(0x8000,4096));
+    phase='проверка разделов';
+    log('Этап 6/6: сверяю раздел APP/NVS/OTA; Flash не менялась.');
     const app=assertSafeAppPartition(parts,image.length,boot);
     ready=true;
     $('deviceState').textContent='✓ '+chip+' / Flash '+flash+'; раздел '+app.label+' @0x10000 ('+Math.round(app.size/1024)+' КиБ). NVS не затрагивается.';
@@ -76,7 +94,12 @@ $('connect').addEventListener('click',async()=>{
   }catch(e){
     ready=false;state('Проверка не пройдена. Ничего не записано.','err');
     $('deviceState').textContent='Плата не прошла проверки. Используй Arduino IDE.';
-    log('Ошибка: '+(e.message||e));await disconnect();
+    log('Ошибка на этапе «'+phase+'»: '+(e.message||e));
+    log('Это была только диагностика, стирание и запись Flash НЕ выполнялись.');
+    if(/Serial data stream stopped|noise|corruption|Failed to connect|Timed out|timeout/i.test(String(e.message||e))){
+      log('Совет: закрой Serial Monitor, убери USB-хаб; затем попробуй «Ручной BOOT»: BOOT удерживать → EN нажать/отпустить → BOOT отпустить → подключить без сброса.');
+    }
+    await disconnect();
   }finally{busy=false;controls();}
 });
 $('disconnect').addEventListener('click',async()=>{
