@@ -5,10 +5,6 @@ on:
     branches: [main]
     paths:
       - 'source/Twitch_LED_Builder_ESP32_v5_3.ino'
-      - '.github/workflows/build-firmware-v5_3.yml'
-      - 'tests/test_updater_guard.mjs'
-      - 'firmware-guard.mjs'
-      - 'updater.js'
 permissions:
   contents: write
 concurrency:
@@ -108,5 +104,15 @@ jobs:
           if git diff --cached --quiet; then echo 'Firmware already current'; exit 0; fi
           git commit -m 'Publish ESP32 v5.3 APP and separate recovery segments'
           git fetch origin main
-          git rebase origin/main
+          if ! git rebase origin/main; then
+            git rebase --abort
+            current_source=$(sha256sum source/Twitch_LED_Builder_ESP32_v5_3.ino | cut -d' ' -f1)
+            head_source=$(git show origin/main:source/Twitch_LED_Builder_ESP32_v5_3.ino | sha256sum | cut -d' ' -f1)
+            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v5.3.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.3'"; then
+              echo "Another run published a validated v5.3 package for the same source; skipping duplicate binary."
+              exit 0
+            fi
+            echo "::error::Repository changed during build, and a matching release was not found. Refusing unsafe overwrite."
+            exit 1
+          fi
           git push origin HEAD:main
