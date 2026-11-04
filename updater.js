@@ -54,9 +54,10 @@ $('connect').addEventListener('click',async()=>{
   if(!release||!image||busy)return;
   busy=true;controls();state('Проверяю ESP32...');
   try{
+    // The port selector MUST be invoked immediately in the user click gesture.
+    const port=await navigator.serial.requestPort();
     const m=await import('https://unpkg.com/esptool-js@0.7.1/bundle.js');
     if(!m.ESPLoader||!m.Transport)throw Error('Библиотека esptool-js недоступна.');
-    const port=await navigator.serial.requestPort();
     transport=new m.Transport(port,true);
     const terminal={clean(){},write(){},writeLine(s){if(/chip|flash|error|sync|stub|connect/i.test(s))log(String(s).trim().slice(0,180));}};
     loader=new m.ESPLoader({transport,baudrate:115200,terminal,debugLogging:false});
