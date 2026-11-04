@@ -1,0 +1,68 @@
+name: Build ESP32 Twitch LED firmware v5.1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'source/Twitch_LED_Builder_ESP32_v5_1.ino'
+      - '.github/workflows/firmware-v5_1.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: esp32-firmware-v5-1
+  cancel-in-progress: false
+
+jobs:
+  compile-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+      - name: Install ESP32 board support 3.3.12 and libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile app-only binary
+        run: |
+          set -euo pipefail
+          mkdir -p tmp-sketch/Twitch_LED_Builder_ESP32_v5_1 out
+          cp source/Twitch_LED_Builder_ESP32_v5_1.ino tmp-sketch/Twitch_LED_Builder_ESP32_v5_1/Twitch_LED_Builder_ESP32_v5_1.ino
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out tmp-sketch/Twitch_LED_Builder_ESP32_v5_1
+          test -s out/Twitch_LED_Builder_ESP32_v5_1.ino.bin
+      - name: Validate image and prepare site release
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, pathlib
+          src=pathlib.Path('out/Twitch_LED_Builder_ESP32_v5_1.ino.bin')
+          data=src.read_bytes()
+          assert len(data)>65536, f'App too small: {len(data)}'
+          assert len(data)<0x140000, f'App exceeds standard ESP32 partition (0x140000): {len(data)}'
+          assert data[0] == 0xE9, 'Not an ESP32 app image: bad magic byte'
+          dest=pathlib.Path('firmware/twitch-led-v5.1.bin')
+          dest.parent.mkdir(exist_ok=True)
+          dest.write_bytes(data)
+          release={'available':True,'version':'5.1','file':dest.name,
+                   'notes':'Блок сегодняшней даты ДД.ММ.ГГГГ, NTP, 4 часовых пояса. При запуске V5.1 DATE READY.',
+                   'app_offset':'0x10000','board':'classic ESP32 Dev Module, 4 MB, default partitions',
+                   'size':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+          pathlib.Path('firmware/release.json').write_text(json.dumps(release,ensure_ascii=False,indent=2)+'\n')
+          print('BIN bytes:',len(data),'sha256:',release['sha256'])
+          PY
+      - name: Publish firmware for GitHub Pages updater
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add firmware/twitch-led-v5.1.bin firmware/release.json
+          if git diff --cached --quiet; then echo 'Firmware already current'; exit 0; fi
+          git commit -m 'Publish verified ESP32 app-only firmware v5.1'
+          git push origin HEAD:main
