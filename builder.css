@@ -29,3 +29,6 @@
 .import-label{display:inline-flex;margin:0;cursor:pointer}
 @media(max-width:900px){.builder-layout{grid-template-columns:1fr}.blocks-list{max-height:360px}}
 @media(max-width:480px){.block-card{grid-template-columns:25px minmax(0,1fr);gap:7px;padding:8px}.block-actions{grid-column:2;justify-self:start}.block-number{width:23px;height:23px}.builder-toolbar .btn,.builder-bottom-actions .btn{flex:1}}
+
+.block-card.date .block-type{color:#ffce7b}
+#dateSettings strong{color:#f4fbff}
