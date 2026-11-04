@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09121e">
-  <meta name="description" content="Конструктор блоков для Twitch Followers LED — текст и счётчики любых Twitch-каналов на матрице ESP32 8×32.">
-  <title>Twitch LED • Конструктор экрана ESP32 v5.1</title>
+  <meta name="description" content="Конструктор Twitch LED для ESP32 8×32 с русским шрифтом, счётчиками Twitch, датой и собственным текстом.">
+  <title>Twitch LED • Конструктор экрана ESP32 v5.2</title>
   <style>
     :root { color-scheme:dark; --bg:#09111d; --surface:#111e30; --card:#14243a; --ink:#eaf4ff; --muted:#a7bbcf; --stroke:#30465d; --accent:#7e77ff; --accentlight:#aaa5ff; --green:#74e6b9; --warn:#ffce85; --red:#fc9094; --shadow:0 16px 48px rgba(0,0,0,.18); }
     * {box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;min-height:100vh;background:radial-gradient(900px 520px at 95% -15%, #24255e60, transparent 80%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
@@ -52,7 +52,7 @@
     <div class="topstatus"><span id="connectionDot" class="dot"></span><span id="connectionText">ESP32 не подключена</span></div>
   </header>
   <section class="hero">
-    <div><div class="eyebrow">Конструктор · v5.1</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
+    <div><div class="eyebrow">Конструктор · v5.2</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
     <div class="led-box"><p class="led-label">Дисплей · 8 × 32</p><div id="ledGrid" class="led-grid" aria-label="Анимированный предпросмотр сценария на светодиодной матрице"></div><p class="led-caption">Анимированный предпросмотр · приближённый шрифт</p></div>
   </section>
   <div id="banner" class="notice" role="status"></div>
@@ -89,7 +89,7 @@
               <div id="textSettings" class="field" hidden>
                 <label for="itemText">Твой текст</label>
                 <textarea class="input text-area" id="itemText" spellcheck="false" rows="4" placeholder="Например: СПАСИБО ЗА ПОДПИСКУ!"></textarea>
-                <div class="row" style="justify-content:space-between"><span class="help">Кириллица переводится в латиницу для стандартного шрифта.</span><span id="textBytes" class="help">0 / 120 байт</span></div>
+                <div class="row" style="justify-content:space-between"><span class="help">Русские буквы, включая Ё/ё, выводятся без транслитерации на v5.2.</span><span id="textBytes" class="help">0 / 120 байт</span></div>
               </div>
               <div id="dateSettings" class="field" hidden>
                 <label for="itemDateZone">Часовой пояс даты</label>
@@ -117,7 +117,7 @@
             <button id="exportPlaylist" type="button" class="btn ghost">Скачать копию .json</button>
             <label class="btn ghost import-label" for="importPlaylist">Загрузить копию .json</label><input id="importPlaylist" type="file" accept=".json,application/json" hidden>
           </div>
-          <div class="note" style="margin-top:16px">Для блока даты нужна <strong>прошивка v5.1</strong>. Сейчас веб-прошивка временно отключена после обнаружения риска стирания загрузчика. Устанавливай скетч v5.1 обычной загрузкой через Arduino IDE. Конструктор работает без USB для подготовки сценария, но запись на ESP32 требует прошивки v5.1. Wi-Fi и сценарий сохранятся только если соответствующие области Flash не были стёрты.</div>
+          <div class="note" style="margin-top:16px">Для русского текста нужна <strong>прошивка v5.2</strong> с настоящим кириллическим шрифтом. Устанавливается сейчас через Arduino IDE; веб-прошивка отключена. Старые сохранённые тексты останутся в UTF-8 и начнут отображаться русскими буквами после обновления. Блок даты доступен с v5.1.</div>
         </section>
       </div>
       <div id="tab-configure" class="tab stack" hidden>
@@ -137,14 +137,11 @@
       </div>
       <div id="tab-updates" class="tab stack" hidden>
         <section class="panel">
-          <h3>Обновления по USB временно отключены</h3>
-          <div class="note danger">
-            Важно: прежний обновлятор публиковал только приложение ESP32 (адрес 0x10000). При новой установке ESP Web Tools может стереть всю Flash-память, включая загрузчик (0x1000). Это способно вызвать <code>invalid header: 0xffffffff</code>.
-            Чтобы исключить повторение ошибки, кнопки установки BIN и ручной загрузки отключены до выпуска полноценного загрузочного пакета и проверки на физической плате.
-          </div>
-          <p>Если ESP32 не загружается, подключи её через USB и загрузи полный скетч обычной кнопкой «Загрузить» в Arduino IDE. В разделе <strong>Инструменты</strong> выбери корректную плату, Flash Size и разметку памяти. Не включай Erase All Flash без необходимости.</p>
-          <p><a class="small-link" href="source/Twitch_LED_Builder_ESP32_v5_1.ino" download>Скачать прошивку v5.1 для Arduino IDE (.ino)</a></p>
-          <p class="help">Конструктор, USB-настройки, дата и импорт/экспорт JSON продолжают работать. После восстановления платы проверь <code>VERSION</code> через монитор порта со скоростью 115200.</p>
+          <h3>Обновление через сайт временно отключено</h3>
+          <div class="note danger">В предыдущей версии обновлятор мог стереть загрузчик ESP32 (ошибка <code>invalid header: 0xffffffff</code>). Повторную прошивку через сайт мы заблокировали до проверки безопасного полного пакета.</div>
+          <p>Для русского шрифта скачай скетч <strong>v5.2</strong> и один раз загрузи его через <strong>Arduino IDE</strong>, обычной кнопкой «Загрузить». Не включай <code>Erase All Flash</code> без необходимости: Wi-Fi и сценарий хранятся во внутренней памяти.</p>
+          <div class="row"><a class="btn primary" href="source/Twitch_LED_Builder_ESP32_v5_2.ino" download>Скачать прошивку v5.2 (.ino)</a></div>
+          <p class="help">Плата: классическая ESP32 Dev Module, MAX7219 FC16 4×8×8; прежние контакты: DIN 23, CLK 18, CS 5.</p>
         </section>
       </div>
       <div id="tab-journal" class="tab stack" hidden>
@@ -155,6 +152,6 @@
     </main>
   </div>
 </div>
-<script src="app.js?v=5.1.1-safe" defer></script>
+<script src="app.js?v=5.2.0" defer></script>
 </body>
 </html>
