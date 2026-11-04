@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#09121e">
-<title>Twitch LED — обновление ESP32 через USB v5.3.1</title>
+<title>Twitch LED — обновление ESP32 через USB v5.3.2</title>
 <style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#e5efff;background:#09111d}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(850px 400px at 100% -20%,#45479b40,transparent 70%),#09111d;line-height:1.55}
@@ -36,7 +36,7 @@ h1{font-size:24px;margin:0;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 12p
 </section>
 <section class="card">
   <h2>2. Проверка ESP32</h2>
-  <p>Закрой монитор порта Arduino IDE и отключи устройство на главной странице конфигуратора. Затем выбери USB Serial, например COM4. Проверка не записывает данные.</p>
+  <p>Закрой монитор порта Arduino IDE и отключи устройство на главной странице конфигуратора. Затем выбери USB Serial, например COM4. Проверка не записывает данные. Версия диагностики 5.3.2 читает только первые 256 байт таблицы разделов вместо 4096 байт для исключения проблемы обмена длинными пакетами.</p>
   <div class="row"><button id="connect" class="action" disabled>Проверить устройство через USB</button><button id="disconnect" class="action secondary" disabled>Отключить</button></div>
   <label class="checkbox"><input id="manualBoot" type="checkbox"><span><strong>Ручной BOOT (если автоматическое соединение не работает).</strong> Перед нажатием «Проверить устройство» удерживай BOOT, кратко нажми EN/RESET, отпусти EN, затем BOOT. После этого выбери эту опцию: программа не будет переключать DTR/RTS, а напрямую подключится к загрузчику.</span></label>
   <p class="muted">Если USB-соединение прерывается: отключи монитор порта Arduino IDE, попробуй другой качественный дата-кабель и прямой USB-порт без хаба. После неудачной проверки можно нажать EN/RESET, чтобы запустить прежнюю прошивку.</p>
@@ -51,6 +51,6 @@ h1{font-size:24px;margin:0;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 12p
 </section>
 <section class="card"><h2>Журнал</h2><pre id="log" aria-live="polite">Ожидание...</pre><p class="muted">Проверка после записи: устройство должно показать <code>V5.3 WEB OK</code>; команда <code>VERSION</code> вернёт 5.3. Запись проводится только по разрешению браузера и нажатию кнопки.</p></section>
 </main>
-<script type="module" src="updater.js?v=5.3.1"></script>
+<script type="module" src="updater.js?v=5.3.2"></script>
 </body>
 </html>
