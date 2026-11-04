@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09121e">
   <meta name="description" content="Конструктор блоков для Twitch Followers LED — текст и счётчики любых Twitch-каналов на матрице ESP32 8×32.">
-  <title>Twitch LED • Конструктор экрана ESP32</title>
+  <title>Twitch LED • Конструктор экрана ESP32 v5.1</title>
   <style>
     :root { color-scheme:dark; --bg:#09111d; --surface:#111e30; --card:#14243a; --ink:#eaf4ff; --muted:#a7bbcf; --stroke:#30465d; --accent:#7e77ff; --accentlight:#aaa5ff; --green:#74e6b9; --warn:#ffce85; --red:#fc9094; --shadow:0 16px 48px rgba(0,0,0,.18); }
     * {box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;min-height:100vh;background:radial-gradient(900px 520px at 95% -15%, #24255e60, transparent 80%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
@@ -53,7 +53,7 @@
     <div class="topstatus"><span id="connectionDot" class="dot"></span><span id="connectionText">ESP32 не подключена</span></div>
   </header>
   <section class="hero">
-    <div><div class="eyebrow">Конструктор · v5</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch и собственные надписи, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
+    <div><div class="eyebrow">Конструктор · v5.1</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
     <div class="led-box"><p class="led-label">Дисплей · 8 × 32</p><div id="ledGrid" class="led-grid" aria-label="Анимированный предпросмотр сценария на светодиодной матрице"></div><p class="led-caption">Анимированный предпросмотр · приближённый шрифт</p></div>
   </section>
   <div id="banner" class="notice" role="status"></div>
@@ -71,6 +71,7 @@
           <div class="builder-toolbar row">
             <button class="btn primary" id="addTwitch" type="button">＋ Счётчик Twitch</button>
             <button class="btn" id="addText" type="button">＋ Свой текст</button>
+            <button class="btn" id="addDate" type="button">＋ Сегодняшняя дата</button>
           </div>
           <div class="builder-layout">
             <div class="builder-list-column">
@@ -91,6 +92,16 @@
                 <textarea class="input text-area" id="itemText" spellcheck="false" rows="4" placeholder="Например: СПАСИБО ЗА ПОДПИСКУ!"></textarea>
                 <div class="row" style="justify-content:space-between"><span class="help">Кириллица переводится в латиницу для стандартного шрифта.</span><span id="textBytes" class="help">0 / 120 байт</span></div>
               </div>
+              <div id="dateSettings" class="field" hidden>
+                <label for="itemDateZone">Часовой пояс даты</label>
+                <select class="input" id="itemDateZone">
+                  <option value="BERLIN">Берлин / Европа (летнее время автоматически)</option>
+                  <option value="MOSCOW">Москва (UTC+3)</option>
+                  <option value="VLADIVOSTOK">Владивосток / Хабаровск (UTC+10)</option>
+                  <option value="UTC">UTC (+0)</option>
+                </select>
+                <p class="help">Формат <strong>ДД.ММ.ГГГГ</strong>. ESP32 получает время через Wi-Fi и NTP, дата пересчитывается при каждом показе. До синхронизации: <code>--.--.----</code>.</p>
+              </div>
               <div class="field"><label for="itemSpeed">Скорость прокрутки <span id="speedLabel" class="muted">65 мс</span></label><input type="range" id="itemSpeed" min="35" max="140" step="5" value="65" class="range"><p class="help">Меньше значение — быстрее.</p></div>
               <div class="field"><label for="itemPause">Пауза между прокрутками</label><select class="input" id="itemPause"><option value="0">Без паузы</option><option value="300">0,3 секунды</option><option value="600">0,6 секунды</option><option value="1000">1 секунда</option><option value="1500">1,5 секунды</option><option value="2500">2,5 секунды</option></select></div>
               <div class="row"><button id="removeSelected" class="btn ghost" type="button">Удалить элемент</button></div>
@@ -102,12 +113,12 @@
             <button id="savePlaylist" type="button" class="btn primary" disabled>Сохранить сценарий на ESP32</button>
             <button id="reloadPlaylist" type="button" class="btn ghost" disabled>Прочитать с ESP32</button>
           </div>
-          <p class="help" id="playlistState" role="status">Создай сценарий, затем подключи ESP32 с прошивкой v5.</p>
+          <p class="help" id="playlistState" role="status">Создай сценарий, затем подключи ESP32 с прошивкой v5.1.</p>
           <div class="row builder-bottom-actions">
             <button id="exportPlaylist" type="button" class="btn ghost">Скачать копию .json</button>
             <label class="btn ghost import-label" for="importPlaylist">Загрузить копию .json</label><input id="importPlaylist" type="file" accept=".json,application/json" hidden>
           </div>
-          <div class="note" style="margin-top:16px">При первом переходе с прошивки v3 нужен один раз загрузить <strong>v5 через Arduino IDE</strong>. Конструктор работает и без USB для подготовки сценария, но сохранять его в ESP32 может только v5. Wi-Fi из v3 сохранится, если не стирать память.</div>
+          <div class="note" style="margin-top:16px">Для блока даты нужна <strong>прошивка v5.1</strong>; её можно установить на вкладке «Обновления» без стирания настроек при совместимой разметке памяти. Для первого перехода с v3 возможна загрузка через Arduino IDE. Конструктор работает и без USB для подготовки сценария, но сохранять его в ESP32 может только v5.1. Wi-Fi из v3 сохранится, если не стирать память.</div>
         </section>
       </div>
       <div id="tab-configure" class="tab stack" hidden>
@@ -130,15 +141,15 @@
           <h3>Обновление прошивки</h3>
           <p class="muted">Прошивка устанавливается напрямую по USB в браузере. Сайт не получает доступ к твоей ESP32 без отдельного разрешения.</p>
           <div class="note warning">Перед обновлением отключи плату во вкладке «Настройка», закрой Arduino Serial Monitor. Не отключай USB во время записи. Выбирай установку <strong>без стирания данных</strong>, чтобы сохранить Wi-Fi и сценарий конструктора.</div>
-          <div class="pills" style="margin-top:15px"><span class="pill" id="releaseStatus">Проверка доступности версии…</span><span class="pill">ESP32 классическая · APP 0x10000</span></div>
+          <div class="pills" style="margin-top:15px"><span class="pill" id="releaseStatus">Проверка доступности версии…</span><span class="pill">ESP32 Dev Module · 4 МБ · стандартная разметка · APP 0x10000</span></div>
           <div id="releaseBlock" hidden>
             <div class="field"><strong id="releaseVersion"></strong><p id="releaseNotes" class="help"></p></div>
-            <label class="check"><input type="checkbox" id="confirmOnline">Подтверждаю, что у меня обычная ESP32 и сохранён совместимый тип разметки памяти; при запросе выберу режим без удаления данных.</label>
+            <label class="check"><input type="checkbox" id="confirmOnline">Моя плата — классическая ESP32 Dev Module, 4 МБ Flash, прежняя стандартная разметка. Я выберу установку без стирания Flash и заранее сохраню сценарий в JSON.</label>
             <div class="updater" id="onlineHolder" hidden>
-              <esp-web-install-button id="onlineInstaller"><button class="btn primary" slot="activate" type="button">Установить опубликованную версию</button><span slot="unsupported" class="help">Нужен Chrome или Edge с Web Serial.</span><span slot="not-allowed" class="help">Открой сайт через HTTPS.</span></esp-web-install-button>
+              <esp-web-install-button id="onlineInstaller"><button class="btn primary" slot="activate" type="button">Обновить ESP32 до v5.1</button><span slot="unsupported" class="help">Нужен Chrome или Edge с Web Serial.</span><span slot="not-allowed" class="help">Открой сайт через HTTPS.</span></esp-web-install-button>
             </div>
           </div>
-          <p id="noRelease" class="help">Пока новой прошивки на сайте нет. Можно использовать файл из Arduino IDE ниже.</p>
+          <p id="noRelease" class="help">Бинарная прошивка ещё не опубликована. До завершения сборки используйте Arduino IDE и скетч из репозитория.</p>
         </section>
         <section class="panel">
           <h3>Загрузить собственный .bin</h3>
