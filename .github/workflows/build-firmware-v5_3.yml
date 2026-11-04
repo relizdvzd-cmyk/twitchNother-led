@@ -6,6 +6,9 @@ on:
     paths:
       - 'source/Twitch_LED_Builder_ESP32_v5_3.ino'
       - '.github/workflows/build-firmware-v5_3.yml'
+      - 'tests/test_updater_guard.mjs'
+      - 'firmware-guard.mjs'
+      - 'updater.js'
 permissions:
   contents: write
 concurrency:
@@ -17,6 +20,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: Verify no-erase flashing and MD5 preflight guards
+        run: node tests/test_updater_guard.mjs
       - uses: arduino/setup-arduino-cli@v2
       - name: Install ESP32 core 3.3.12 and libraries
         run: |
