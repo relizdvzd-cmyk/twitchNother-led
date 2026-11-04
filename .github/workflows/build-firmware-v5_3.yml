@@ -54,7 +54,7 @@ jobs:
           table=paths['partitions'].read_bytes()
           assert app[0]==0xE9 and boot[0]==0xE9
           assert 65536<len(app)<0x140000, ('APP too large',len(app))
-          assert len(boot)<0x7000 and table[:2]==b'\xaa\x50' and len(table)<=0x1000
+          assert len(boot)<0x7000 and table[:2]==b'\xaa\x50' and 192<=len(table)<=0x1000
           entries=[]
           for i in range(0,len(table)-31,32):
             if table[i:i+2]!=b'\xaa\x50': break
@@ -80,6 +80,8 @@ jobs:
             'app_offset':65536,'file':names['app'],'size':len(app),
             'sha256':hashlib.sha256(app).hexdigest(),
             'md5':hashlib.md5(app).hexdigest(),
+            'partition_table_bytes':len(table),
+            'partition_table_md5':hashlib.md5(table).hexdigest(),
             'notes':'Русские буквы, NTP-дата, тестовый баннер V5.3 WEB OK',
             'hardware_tested':False,
             'backup_parts':[
