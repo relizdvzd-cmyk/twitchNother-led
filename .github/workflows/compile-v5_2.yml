@@ -1,0 +1,45 @@
+name: Verify ESP32 Twitch LED v5.2 Cyrillic firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'source/Twitch_LED_Builder_ESP32_v5_2.ino'
+      - '.github/workflows/compile-v5_2.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v2
+      - name: Install ESP32 core and MD_Parola libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile for classic ESP32 Dev Module
+        run: |
+          set -euo pipefail
+          mkdir -p build-sketch/Twitch_LED_Builder_ESP32_v5_2 out
+          cp source/Twitch_LED_Builder_ESP32_v5_2.ino build-sketch/Twitch_LED_Builder_ESP32_v5_2/Twitch_LED_Builder_ESP32_v5_2.ino
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out build-sketch/Twitch_LED_Builder_ESP32_v5_2
+      - name: Validate application image (not published to website)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          image=Path('out/Twitch_LED_Builder_ESP32_v5_2.ino.bin').read_bytes()
+          assert image[0]==0xE9, 'Wrong ESP32 image magic'
+          assert 65536<len(image)<0x140000, f'Image size {len(image)} exceeds default app partition'
+          print(f'v5.2 compile OK, app size={len(image)} bytes')
+          print('CAUTION: app-only BIN is NOT a full flash image and is not distributed as a browser update.')
+          PY
