@@ -481,44 +481,8 @@
     previewTimer=setTimeout(previewTick,speed);
   }
 
-  // --- Optional ESP Web Tools software flashing ---
-  let onlineManifestUrl=null,localManifestUrl=null,localFirmwareUrl=null;
-  const firmwareBase=new URL('./firmware/',document.baseURI);
-  function makeManifest(binUrl,version){
-    const data={name:'Twitch Followers LED',version,new_install_prompt_erase:true,new_install_improv_wait_time:0,
-      builds:[{chipFamily:'ESP32',parts:[{path:binUrl,offset:65536}]}]};
-    return URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
-  }
-  async function lookupRelease(){
-    try{
-      const response=await fetch(new URL('release.json',firmwareBase),{cache:'no-store'});
-      if(!response.ok)throw Error('HTTP '+response.status);
-      const item=await response.json();
-      if(!item.available||!item.file){$('releaseStatus').textContent='Опубликованной прошивки пока нет';return;}
-      if(!/^[\w.\-]+\.bin$/.test(item.file))throw Error('Некорректный путь .bin');
-      const fileUrl=new URL(item.file,firmwareBase).href;
-      onlineManifestUrl=makeManifest(fileUrl,String(item.version||'latest'));
-      $('onlineInstaller').manifest=onlineManifestUrl;
-      $('releaseVersion').textContent='Версия '+String(item.version||'новая');
-      $('releaseNotes').textContent=String(item.notes||'Доступная версия.');
-      $('noRelease').hidden=true;$('releaseBlock').hidden=false;
-      $('releaseStatus').textContent='Версия '+String(item.version||'latest')+' доступна';
-    }catch(e){$('releaseStatus').textContent='Проверить версию не удалось';log(e.message,'Инфо');}
-  }
-  $('confirmOnline').addEventListener('change',e=>{$('onlineHolder').hidden=!e.target.checked;});
-  $('confirmLocal').addEventListener('change',e=>{$('localHolder').hidden=!(e.target.checked&&localManifestUrl);});
-  $('firmwareFile').addEventListener('change',e=>{
-    const file=e.target.files?.[0];
-    $('localHolder').hidden=true;$('confirmLocal').checked=false;
-    if(!file){$('fileInfo').textContent='Файл не выбран';localManifestUrl=null;return;}
-    if(!file.name.toLowerCase().endsWith('.bin')||file.size<4096||file.size>3*1024*1024){
-      $('fileInfo').textContent='Нужен совместимый .bin от 4 КБ до 3 МБ.';localManifestUrl=null;return;
-    }
-    localFirmwareUrl=URL.createObjectURL(file);
-    localManifestUrl=makeManifest(localFirmwareUrl,'local-'+file.name.replace(/[^a-zA-Z0-9_.-]/g,'_'));
-    $('localInstaller').manifest=localManifestUrl;
-    $('fileInfo').textContent=`Выбран ${file.name} · ${(file.size/1024).toFixed(1)} КиБ. Файл остаётся на компьютере.`;
-  });
+  // Browser firmware flashing is deliberately DISABLED after app-only flash
+  // could erase the bootloader during a new installation. Recovery is via Arduino IDE.
 
   loadLocalDraft();createMatrix();renderBuilder();
   if(!('serial' in navigator))banner('Для подключения нужен Chrome или Edge с Web Serial на компьютере. Конструктор можно редактировать офлайн.');
