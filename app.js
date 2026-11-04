@@ -1,4 +1,4 @@
-/* Twitch Followers LED — USB settings + typed playlist constructor v5.0.
+/* Twitch Followers LED — USB settings + typed playlist constructor v5.1.
    All browser-to-ESP32 configuration happens locally over Web Serial.
    The only persisted browser data is the display playlist (no Wi-Fi secret).
 */
@@ -10,8 +10,14 @@
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const MAX_BLOCKS=12, MAX_TEXT_BYTES=120, STORAGE_KEY='twitch-led-builder-v5';
   const defaultBlock=()=>({type:'twitch',value:'pwgood',speed:65,pauseMs:300});
+  const DATE_ZONES={BERLIN:'Europe/Berlin',MOSCOW:'Europe/Moscow',VLADIVOSTOK:'Asia/Vladivostok',UTC:'UTC'};
+  function localDate(zone){
+    const timeZone=DATE_ZONES[zone]||DATE_ZONES.BERLIN;
+    try{return new Intl.DateTimeFormat('ru-RU',{timeZone,day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());}
+    catch(_){return '--.--.----';}
+  }
   let blocks=[defaultBlock()], selected=0, dirty=false;
-  let port=null, reader=null, readTask=null, connected=false, busy=false, fw5=false;
+  let port=null, reader=null, readTask=null, connected=false, busy=false, fw5=false, firmwareVersion=0;
   let rxBuffer='', pendingReply=null, incomingPlaylist=null;
   let counts=new Map();
   let previewTimer=null, previewIndex=0, previewColumn=0, previewColumns=[];
@@ -53,11 +59,13 @@
     return new TextDecoder('utf-8',{fatal:true}).decode(bytes);
   };
   function sanitizeBlock(item) {
-    if(!item || !['twitch','text'].includes(item.type))throw Error('Неизвестный тип элемента');
+    if(!item || !['twitch','text','date'].includes(item.type))throw Error('Неизвестный тип элемента');
     let value=String(item.value??'').trim();
     if(item.type==='twitch'){
       value=normalizeStreamer(value);
       if(!value)throw Error('Проверь логин Twitch — латиница, цифры и _');
+    }else if(item.type==='date'){
+      if(!Object.hasOwn(DATE_ZONES,value))throw Error('Выбери часовой пояс для даты');
     }else{
       if(!value || /[\r\n\x00-\x1f]/.test(value))throw Error('Свой текст не должен быть пустым или содержать переносы строк');
       if(byteLength(value)>MAX_TEXT_BYTES)throw Error(`Свой текст не должен превышать ${MAX_TEXT_BYTES} байт UTF-8`);
@@ -79,19 +87,21 @@
   }
   function markDirty(){dirty=true;persistDraft();updateBuilderButtons();}
   function updateBuilderButtons(){
-    $('savePlaylist').disabled=!(connected&&fw5&&!busy&&blocks.length>0);
+    const needsNewFirmware=blocks.some(b=>b.type==='date')&&firmwareVersion<5.1;
+    $('savePlaylist').disabled=!(connected&&fw5&&!needsNewFirmware&&!busy&&blocks.length>0);
     $('reloadPlaylist').disabled=!(connected&&fw5&&!busy);
     $('builderConnect').disabled=connected||busy;
     $('playlistState').dataset.dirty=String(dirty);
     if(!connected) notify('Черновик в браузере. Подключи ESP32, чтобы записать сценарий на устройство.');
-    else if(!fw5)notify('Подключено. Для конструктора необходима прошивка v5 (её .ino находится в архиве).');
+    else if(!fw5)notify('Подключено. Для конструктора нужна прошивка v5 и новее.');
+    else if(needsNewFirmware)notify('Для блока даты нужно обновить прошивку до v5.1 через вкладку «Обновления».');
     else if(busy)notify('Передача настроек по USB…');
     else if(dirty)notify('Есть несохранённые изменения. Нажми «Сохранить сценарий на ESP32».');
     else notify('Сценарий загружен с ESP32 и готов к работе.');
   }
   function setConnected(yes){
     connected=yes;
-    if(!yes)fw5=false;
+    if(!yes){fw5=false;firmwareVersion=0;}
     $('connectionDot').classList.toggle('on',yes);
     $('connectionText').textContent=yes?'ESP32 подключена':'ESP32 не подключена';
     $('connectedBadge').textContent=yes?'Подключено · 115200':'Не подключена';
@@ -116,10 +126,10 @@
       $('currentWifi').textContent=status[2];
       $('currentCount').textContent=status[4];
       const version=s.match(/ firmware=([\d.]+)/);
-      if(version){$('firmwareInfo').textContent='Прошивка: '+version[1];if(Number(version[1])>=5)fw5=true;updateBuilderButtons();}
+      if(version){firmwareVersion=Number(version[1]);$('firmwareInfo').textContent='Прошивка: '+version[1];fw5=firmwareVersion>=5;updateBuilderButtons();}
     }
-    if(s.startsWith('VERSION TWITCHLED 5.')){
-      fw5=true;$('firmwareInfo').textContent='Прошивка: v5 (конструктор доступен)';updateBuilderButtons();
+    if(/^VERSION TWITCHLED 5\.\d+/.test(s)){
+      fw5=true;firmwareVersion=Number(s.split(' ')[2]);$('firmwareInfo').textContent='Прошивка: '+s.split(' ')[2]+' (конструктор доступен)';updateBuilderButtons();
     }
     const changed=s.match(/^OK STREAMER\s+(\S+)/);
     if(changed)$('currentStreamer').textContent=changed[1];
@@ -129,12 +139,12 @@
     if(begin) {
       const n=Number(begin[1]);incomingPlaylist=n<=MAX_BLOCKS?{expected:n,blocks:[]}:null;
     }
-    const item=s.match(/^PLAYLIST ITEM (\d+) (TWITCH|TEXT) (\d+) (\d+) (.+)$/);
+    const item=s.match(/^PLAYLIST ITEM (\d+) (TWITCH|TEXT|DATE) (\d+) (\d+) (.+)$/);
     if(item&&incomingPlaylist){
       try{
         const i=Number(item[1]);if(i!==incomingPlaylist.blocks.length)throw Error('Порядок блоков не совпал');
         incomingPlaylist.blocks.push(sanitizeBlock({
-          type:item[2]==='TWITCH'?'twitch':'text',value:item[2]==='TEXT'?b64ToText(item[5]):item[5],
+          type:item[2].toLowerCase(),value:item[2]==='TEXT'?b64ToText(item[5]):item[5],
           speed:Number(item[3]),pauseMs:Number(item[4])
         }));
       }catch(e){incomingPlaylist=null;log('Некорректный блок устройства: '+e.message,'Ошибка');}
@@ -241,16 +251,16 @@
   $('customCommand').addEventListener('keydown',e=>{if(e.key==='Enter')$('sendCommand').click();});
 
   // --- Builder: add, select, edit, reorder, delete, save ---
-  function itemName(block){return block.type==='twitch'?block.value||'Не указан логин':block.value||'Пустой текст';}
+  function itemName(block){return block.type==='twitch'?block.value||'Не указан логин':block.type==='date'?localDate(block.value):block.value||'Пустой текст';}
   function renderList(){
     const list=$('blocksList');list.replaceChildren();
     blocks.forEach((block,index)=>{
       const card=document.createElement('div');
-      card.className='block-card '+(block.type==='text'?'text':'twitch')+(selected===index?' selected':'');
+      card.className='block-card '+block.type+(selected===index?' selected':'');
       card.setAttribute('role','listitem');
       const num=document.createElement('span');num.className='block-number';num.textContent=index+1;
       const main=document.createElement('button');main.type='button';main.className='block-main';main.dataset.action='select';main.dataset.index=index;
-      const type=document.createElement('span');type.className='block-type';type.textContent=block.type==='twitch'?'TWITCH · ФОЛЛОВЕРЫ':'СВОЙ ТЕКСТ';
+      const type=document.createElement('span');type.className='block-type';type.textContent=block.type==='twitch'?'TWITCH · ФОЛЛОВЕРЫ':block.type==='date'?'СЕГОДНЯШНЯЯ ДАТА':'СВОЙ ТЕКСТ';
       const value=document.createElement('span');value.className='block-value';value.textContent=shorten(itemName(block));
       main.append(type,value);main.title='Открыть настройки элемента';
       const actions=document.createElement('div');actions.className='block-actions';
@@ -265,6 +275,7 @@
     });
     const n=blocks.length;$('itemCount').textContent=n+' '+(n===1?'элемент':n>=2&&n<=4?'элемента':'элементов');
     $('addText').disabled=n>=MAX_BLOCKS;
+    $('addDate').disabled=n>=MAX_BLOCKS;
     $('addTwitch').disabled=n>=MAX_BLOCKS;
     $('removeSelected').disabled=n===1;
   }
@@ -272,9 +283,11 @@
     selected=Math.min(selected,blocks.length-1);
     const block=blocks[selected];
     $('selectedPosition').textContent='№ '+(selected+1);
-    $('editHeading').textContent=block.type==='twitch'?'Счётчик фолловеров Twitch':'Произвольный текст';
+    $('editHeading').textContent=block.type==='twitch'?'Счётчик фолловеров Twitch':block.type==='date'?'Сегодняшняя дата':'Произвольный текст';
     $('twitchSettings').hidden=block.type!=='twitch';
     $('textSettings').hidden=block.type!=='text';
+    $('dateSettings').hidden=block.type!=='date';
+    $('itemDateZone').value=block.type==='date'?block.value:'BERLIN';
     $('itemStreamer').value=block.type==='twitch'?block.value:'';
     $('itemText').value=block.type==='text'?block.value:'';
     $('itemSpeed').value=block.speed;
@@ -301,12 +314,13 @@
   });
   function addBlock(type){
     if(blocks.length>=MAX_BLOCKS){banner('Можно добавить не более 12 элементов.');return;}
-    const newBlock=type==='text'?{type,value:'PRIVET!',speed:65,pauseMs:300}:defaultBlock();
+    const newBlock=type==='date'?{type,value:'BERLIN',speed:65,pauseMs:300}:type==='text'?{type,value:'PRIVET!',speed:65,pauseMs:300}:defaultBlock();
     blocks.splice(selected+1,0,newBlock);selected+=1;markDirty();renderBuilder();
-    (type==='text'?$('itemText'):$('itemStreamer')).focus();
+    (type==='date'?$('itemDateZone'):type==='text'?$('itemText'):$('itemStreamer')).focus();
   }
   $('addTwitch').addEventListener('click',()=>addBlock('twitch'));
   $('addText').addEventListener('click',()=>addBlock('text'));
+  $('addDate').addEventListener('click',()=>addBlock('date'));
   $('removeSelected').addEventListener('click',()=>{
     if(blocks.length<=1)return;
     blocks.splice(selected,1);selected=Math.min(selected,blocks.length-1);markDirty();renderBuilder();
@@ -328,13 +342,19 @@
     $('textBytes').style.color=len>MAX_TEXT_BYTES?'#fc9094':'';
     markDirty();renderList();restartPreview();
   });
+  $('itemDateZone').addEventListener('change',e=>{
+    if(blocks[selected].type!=='date')return;
+    blocks[selected].value=e.target.value;
+    markDirty();renderList();restartPreview();
+  });
   $('itemSpeed').addEventListener('input',e=>{
     blocks[selected].speed=Number(e.target.value);$('speedLabel').textContent=e.target.value+' мс';markDirty();restartPreview();
   });
   $('itemPause').addEventListener('change',e=>{blocks[selected].pauseMs=Number(e.target.value);markDirty();restartPreview();});
   $('savePlaylist').addEventListener('click',async()=>{
     if(busy)return;
-    if(!connected||!fw5){banner('Подключи ESP32 с прошивкой v5.');return;}
+    if(!connected||!fw5){banner('Подключи ESP32 с прошивкой v5 или новее.');return;}
+    if(blocks.some(b=>b.type==='date')&&firmwareVersion<5.1){banner('Для даты обнови прошивку до v5.1.');return;}
     let clean;
     try{clean=validatePlaylist(blocks);}catch(e){banner('Ошибка сценария: '+e.message);return;}
     busy=true;updateBuilderButtons();
@@ -343,7 +363,7 @@
       await sendAck('PLAYLIST BEGIN','OK PLAYLIST BEGIN','Начало передачи сценария.');
       for(let i=0;i<clean.length;i++){
         const item=clean[i],encoded=item.type==='text'?byteToB64(item.value):item.value;
-        await sendAck(`PLAYLIST ADD ${item.type==='text'?'TEXT':'TWITCH'} ${encoded} ${item.speed} ${item.pauseMs}`,'OK PLAYLIST ADD',`Блок ${i+1}/${clean.length}: ${item.type==='text'?'текст':'Twitch'}`);
+        await sendAck(`PLAYLIST ADD ${item.type.toUpperCase()} ${encoded} ${item.speed} ${item.pauseMs}`,'OK PLAYLIST ADD',`Блок ${i+1}/${clean.length}: ${item.type==='date'?'дата':item.type==='text'?'текст':'Twitch'}`);
       }
       await sendAck('PLAYLIST COMMIT','OK PLAYLIST SAVED','Запись сценария во флеш-память ESP32.');
       committed=true;blocks=clean;dirty=false;persistDraft();
@@ -358,7 +378,7 @@
   $('reloadPlaylist').addEventListener('click',()=>send('PLAYLIST GET','Повторное чтение сценария.').catch(e=>banner(e.message)));
   $('exportPlaylist').addEventListener('click',()=>{
     let clean;try{clean=validatePlaylist(blocks);}catch(e){banner('Проверь сценарий перед экспортом: '+e.message);return;}
-    const blob=new Blob([JSON.stringify({schema:1,app:'Twitch LED Builder',blocks:clean},null,2)],{type:'application/json'});
+    const blob=new Blob([JSON.stringify({schema:2,app:'Twitch LED Builder',blocks:clean},null,2)],{type:'application/json'});
     const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='twitch-led-playlist.json';a.click();
     setTimeout(()=>URL.revokeObjectURL(u),3000);
   });
@@ -422,6 +442,7 @@
   function currentPreviewMessage(){
     const item=blocks[previewIndex]||blocks[0];
     if(item.type==='text')return matrixText(item.value||' ');
+    if(item.type==='date')return localDate(item.value);
     const login=normalizeStreamer(item.value)||'PWGOOD';
     return login.toUpperCase()+': '+(counts.get(login)||'123456');
   }
@@ -464,7 +485,7 @@
   let onlineManifestUrl=null,localManifestUrl=null,localFirmwareUrl=null;
   const firmwareBase=new URL('./firmware/',document.baseURI);
   function makeManifest(binUrl,version){
-    const data={name:'Twitch Followers LED',version,new_install_prompt_erase:true,
+    const data={name:'Twitch Followers LED',version,new_install_prompt_erase:true,new_install_improv_wait_time:0,
       builds:[{chipFamily:'ESP32',parts:[{path:binUrl,offset:65536}]}]};
     return URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));
   }
