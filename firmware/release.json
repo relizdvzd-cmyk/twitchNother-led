@@ -1,6 +1,10 @@
 {
-  "available": false,
+  "available": true,
   "version": "5.1",
-  "file": "",
-  "notes": "Бинарная сборка v5.1 ещё не подтверждена; ожидается компиляция GitHub Actions."
+  "file": "twitch-led-v5.1.bin",
+  "notes": "Блок сегодняшней даты ДД.ММ.ГГГГ, NTP, 4 часовых пояса. При запуске V5.1 DATE READY.",
+  "app_offset": "0x10000",
+  "board": "classic ESP32 Dev Module, 4 MB, default partitions",
+  "size": 1074112,
+  "sha256": "bdef1e14a5ec527c1231600b57db67a79d6a2de56ed34d2f898b9283d8ef8c51"
 }
