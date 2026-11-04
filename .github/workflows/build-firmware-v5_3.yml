@@ -100,4 +100,6 @@ jobs:
           git add firmware/twitch-led-v5.3.bin firmware/bootloader-esp32-v5.3.bin firmware/partitions-esp32-4mb-default-v5.3.bin firmware/boot_app0-esp32-v5.3.bin firmware/update-v5.3.json
           if git diff --cached --quiet; then echo 'Firmware already current'; exit 0; fi
           git commit -m 'Publish ESP32 v5.3 APP and separate recovery segments'
+          git fetch origin main
+          git rebase origin/main
           git push origin HEAD:main
