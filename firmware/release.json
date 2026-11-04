@@ -1,10 +1,11 @@
 {
-  "available": true,
+  "available": false,
   "version": "5.1",
   "file": "twitch-led-v5.1.bin",
-  "notes": "Блок сегодняшней даты ДД.ММ.ГГГГ, NTP, 4 часовых пояса. При запуске V5.1 DATE READY.",
+  "notes": "Веб-обновление временно отключено: app-only BIN не является полным образом ESP32 и не подходит для новой установки после стирания Flash.",
   "app_offset": "0x10000",
   "board": "classic ESP32 Dev Module, 4 MB, default partitions",
   "size": 1074112,
-  "sha256": "bdef1e14a5ec527c1231600b57db67a79d6a2de56ed34d2f898b9283d8ef8c51"
+  "sha256": "bdef1e14a5ec527c1231600b57db67a79d6a2de56ed34d2f898b9283d8ef8c51",
+  "safety_status": "blocked_unsafe_app_only_install"
 }
