@@ -1,5 +1,5 @@
 /* Guarded Twitch LED v5.3 Web Serial updater. NO eraseFlash and eraseAll:false. */
-import {APP_OFFSET,assertRelease,assertImage,assertChipAndFlash,parsePartitions,assertSafeAppPartition} from './firmware-guard.mjs';
+import {APP_OFFSET,assertRelease,assertImage,assertChipAndFlash,assertBootDigestNotBlank,assertPartitionDigest} from './firmware-guard.mjs';
 const $=id=>document.getElementById(id);
 const logEl=$('log');
 let release=null,image=null,loader=null,transport=null,ready=false,busy=false;
@@ -78,28 +78,25 @@ $('connect').addEventListener('click',async()=>{
     const flash=await loader.detectFlashSize();
     assertChipAndFlash(chip,flash);
     log('Определено: '+chip+' / '+flash);
-    phase='чтение заголовка загрузчика 0x1000';
-    log('Этап 4/6: читаю 16 байт загрузчика (только чтение).');
-    const boot=await loader.readFlash(0x1000,16);
-    phase='чтение таблицы разделов 0x8000';
-    log('Этап 5/6: читаю первые 256 байт таблицы разделов одним пакетом (только чтение).');
-    // esptool-js@0.7.1 readFlash(4096) spans multiple stub responses and may
-    // fail on some USB-serial bridges. The classic ESP32 default table uses 5
-    // 32-byte entries; reading 256 bytes is sufficient for all default entries.
-    // Keep this read to one packet (< 1024 bytes) and do not automatically retry
-    // on a corrupted stream; reconnection is safer.
-    const partitionHeader=await loader.readFlash(0x8000,256);
-    if(!(partitionHeader instanceof Uint8Array)||partitionHeader.length!==256)
-      throw Error('Таблица разделов: ожидалось ровно 256 байт.');
-    const parts=parsePartitions(partitionHeader);
-    log('Найдено разделов в первых 256 байтах: '+parts.length+'. '+parts.map(p=>p.label+'@0x'+p.offset.toString(16)).join(', '));
-    phase='проверка разделов';
-    log('Этап 6/6: проверяю NVS/OTA/APP в таблице из 256 байт, без записи Flash.');
-    const app=assertSafeAppPartition(parts,image.length,boot);
+    // IMPORTANT: esptool-js@0.7.1 readFlash() fails to drain the final 16-byte
+    // digest sent by the ESP32 stub; a following command can desynchronise.
+    // ESP_SPI_FLASH_MD5 is a self-contained command (no streaming packets).
+    phase='MD5 заголовка загрузчика 0x1000';
+    log('Этап 4/6: вычисляю MD5 первых 16 байт загрузчика на ESP32 (без READ_FLASH).');
+    const bootDigest=String(await loader.flashMd5sum(0x1000,16)).toLowerCase();
+    assertBootDigestNotBlank(bootDigest);
+    log('Загрузчик не пустой, MD5 начала: '+bootDigest);
+    phase='MD5 таблицы разделов 0x8000';
+    log('Этап 5/6: вычисляю MD5 '+release.partition_table_bytes+' байт таблицы разделов прямо на ESP32.');
+    const partitionDigest=String(await loader.flashMd5sum(0x8000,release.partition_table_bytes)).toLowerCase();
+    assertPartitionDigest(partitionDigest,release);
+    phase='проверка схемы разделов';
+    log('Этап 6/6: MD5 таблицы совпадает с эталоном стандартной разметки, APP @0x10000.');
+    const app={label:'factory',size:0x140000};
     ready=true;
     $('deviceState').textContent='✓ '+chip+' / Flash '+flash+'; раздел '+app.label+' @0x10000 ('+Math.round(app.size/1024)+' КиБ). NVS не затрагивается.';
     state('Проверка пройдена. Подтверди установку.','ok');
-    log('Загрузчик найден, разделы NVS/OTA/APP совместимы. Запись пока не начиналась.');
+    log('MD5 таблицы разделов совпала, проверка завершена без записи Flash.');
   }catch(e){
     ready=false;state('Проверка не пройдена. Ничего не записано.','err');
     $('deviceState').textContent='Плата не прошла проверки. Используй Arduino IDE.';
