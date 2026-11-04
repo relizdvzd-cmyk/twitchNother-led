@@ -44,7 +44,6 @@
     @media(max-width:600px){.shell{padding:14px 12px 50px}.hero{grid-template-columns:1fr;gap:18px;padding-top:22px}.led-box{max-width:420px}.split{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}.panel{padding:16px}.brand h1{font-size:20px}.nav .num{display:none}}
   </style>
   <link rel="stylesheet" href="builder.css">
-  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
 </head>
 <body>
 <div class="shell">
@@ -138,26 +137,14 @@
       </div>
       <div id="tab-updates" class="tab stack" hidden>
         <section class="panel">
-          <h3>Обновление прошивки</h3>
-          <p class="muted">Прошивка устанавливается напрямую по USB в браузере. Сайт не получает доступ к твоей ESP32 без отдельного разрешения.</p>
-          <div class="note warning">Перед обновлением отключи плату во вкладке «Настройка», закрой Arduino Serial Monitor. Не отключай USB во время записи. Выбирай установку <strong>без стирания данных</strong>, чтобы сохранить Wi-Fi и сценарий конструктора.</div>
-          <div class="pills" style="margin-top:15px"><span class="pill" id="releaseStatus">Проверка доступности версии…</span><span class="pill">ESP32 Dev Module · 4 МБ · стандартная разметка · APP 0x10000</span></div>
-          <div id="releaseBlock" hidden>
-            <div class="field"><strong id="releaseVersion"></strong><p id="releaseNotes" class="help"></p></div>
-            <label class="check"><input type="checkbox" id="confirmOnline">Моя плата — классическая ESP32 Dev Module, 4 МБ Flash, прежняя стандартная разметка. Я выберу установку без стирания Flash и заранее сохраню сценарий в JSON.</label>
-            <div class="updater" id="onlineHolder" hidden>
-              <esp-web-install-button id="onlineInstaller"><button class="btn primary" slot="activate" type="button">Обновить ESP32 до v5.1</button><span slot="unsupported" class="help">Нужен Chrome или Edge с Web Serial.</span><span slot="not-allowed" class="help">Открой сайт через HTTPS.</span></esp-web-install-button>
-            </div>
+          <h3>Обновления по USB временно отключены</h3>
+          <div class="note danger">
+            Важно: прежний обновлятор публиковал только приложение ESP32 (адрес 0x10000). При новой установке ESP Web Tools может стереть всю Flash-память, включая загрузчик (0x1000). Это способно вызвать <code>invalid header: 0xffffffff</code>.
+            Чтобы исключить повторение ошибки, кнопки установки BIN и ручной загрузки отключены до выпуска полноценного загрузочного пакета и проверки на физической плате.
           </div>
-          <p id="noRelease" class="help">Бинарная прошивка ещё не опубликована. До завершения сборки используйте Arduino IDE и скетч из репозитория.</p>
-        </section>
-        <section class="panel">
-          <h3>Загрузить собственный .bin</h3>
-          <p class="help">Подходит <strong>файл приложения</strong> из Arduino IDE → Sketch → Export Compiled Binary (не merged/combined). Загрузка по адресу <code>0x10000</code> для той же платы и той же схемы разделов, с которой устройство уже работало.</p>
-          <div class="field"><label for="firmwareFile">Файл прошивки (.bin)</label><input type="file" accept=".bin,application/octet-stream" id="firmwareFile" class="input"><p id="fileInfo" class="help">Файл не выбран</p></div>
-          <label class="check"><input type="checkbox" id="confirmLocal">Я проверил тип платы и схему разделов, и понимаю, что несовместимая прошивка может не запуститься. Если появится запрос, выберу вариант без стирания.</label>
-          <div class="updater" id="localHolder" hidden><esp-web-install-button id="localInstaller"><button class="btn primary" slot="activate" type="button">Прошить выбранный .bin</button><span slot="unsupported" class="help">Нужен Chrome или Edge с Web Serial.</span><span slot="not-allowed" class="help">Открой сайт через HTTPS.</span></esp-web-install-button></div>
-          <div class="note danger" style="margin-top:15px">Функция обновления рассчитана на уже прошитую <strong>обычную ESP32</strong> (как наша предыдущая версия v3) с прежней схемой разделов. Это не универсальный установщик для ESP32-S3, C3 и других плат. Не выбирай полное стирание Flash, если хочешь сохранить настройки.</div>
+          <p>Если ESP32 не загружается, подключи её через USB и загрузи полный скетч обычной кнопкой «Загрузить» в Arduino IDE. В разделе <strong>Инструменты</strong> выбери корректную плату, Flash Size и разметку памяти. Не включай Erase All Flash без необходимости.</p>
+          <p><a class="small-link" href="source/Twitch_LED_Builder_ESP32_v5_1.ino" download>Скачать прошивку v5.1 для Arduino IDE (.ino)</a></p>
+          <p class="help">Конструктор, USB-настройки, дата и импорт/экспорт JSON продолжают работать. После восстановления платы проверь <code>VERSION</code> через монитор порта со скоростью 115200.</p>
         </section>
       </div>
       <div id="tab-journal" class="tab stack" hidden>
@@ -168,6 +155,6 @@
     </main>
   </div>
 </div>
-<script src="app.js" defer></script>
+<script src="app.js?v=5.1.1-safe" defer></script>
 </body>
 </html>
