@@ -6,7 +6,9 @@ export function assertRelease(r){
   if(!r||r.available!==true||r.protocol!=='esp32-app-only-no-erase-v1'||r.version!=='5.3'||
      r.board!=='ESP32'||r.flash_size!=='4MB'||r.app_offset!==APP_OFFSET||
      r.file!==EXPECTED_FILE||!Number.isSafeInteger(r.size)||r.size<65536||r.size>0x140000||
-     !/^[a-f0-9]{64}$/i.test(r.sha256||'')||!/^[a-f0-9]{32}$/i.test(r.md5||'')){
+     !/^[a-f0-9]{64}$/i.test(r.sha256||'')||!/^[a-f0-9]{32}$/i.test(r.md5||'')||
+     !Number.isSafeInteger(r.partition_table_bytes)||r.partition_table_bytes<192||r.partition_table_bytes>4096||
+     !/^[a-f0-9]{32}$/i.test(r.partition_table_md5||'')){
     throw Error('Пакет прошивки не опубликован или несовместим. Запись заблокирована.');
   }
   return r;
@@ -17,6 +19,25 @@ export function assertChipAndFlash(chipName,flashSize){
     throw Error('Неподдерживаемый контроллер '+chip+'. Нужна классическая ESP32.');
   if(String(flashSize||'').toUpperCase()!=='4MB')
     throw Error('Размер Flash '+flashSize+' не равен 4MB. Запись запрещена.');
+}
+// Use ESP_SPI_FLASH_MD5 to validate flash without READ_FLASH. Older
+// esptool-js readFlash() leaves the final data digest unread.
+export function assertBootDigestNotBlank(md5) {
+  const actual=String(md5||'').trim().toLowerCase();
+  if(!/^[a-f0-9]{32}$/.test(actual)||
+     actual==='8d79cbc9a4ecdde112fc91ba625b13c2'|| // MD5(16 x FF)
+     actual==='4ae71336e44bf9bf79d2752e234818a5') // MD5(16 x 00)
+    throw Error('Загрузчик пуст или контрольная сумма не получена. Запись запрещена.');
+  return actual;
+}
+export function assertPartitionDigest(md5, release) {
+  assertRelease(release);
+  const actual=String(md5||'').trim().toLowerCase();
+  if(!/^[a-f0-9]{32}$/.test(actual)||
+     actual!==release.partition_table_md5.toLowerCase())
+    throw Error('Таблица разделов НЕ совпадает с эталоном ESP32 4MB Default (ожидалось '+
+       release.partition_table_md5+', получено '+actual+'). Запись запрещена.');
+  return true;
 }
 export function parsePartitions(data){
   if(!(data instanceof Uint8Array)||data.length<32)throw Error('Нет таблицы разделов.');
