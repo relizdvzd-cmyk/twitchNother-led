@@ -82,10 +82,19 @@ $('connect').addEventListener('click',async()=>{
     log('Этап 4/6: читаю 16 байт загрузчика (только чтение).');
     const boot=await loader.readFlash(0x1000,16);
     phase='чтение таблицы разделов 0x8000';
-    log('Этап 5/6: читаю таблицу разделов (только чтение).');
-    const parts=parsePartitions(await loader.readFlash(0x8000,4096));
+    log('Этап 5/6: читаю первые 256 байт таблицы разделов одним пакетом (только чтение).');
+    // esptool-js@0.7.1 readFlash(4096) spans multiple stub responses and may
+    // fail on some USB-serial bridges. The classic ESP32 default table uses 5
+    // 32-byte entries; reading 256 bytes is sufficient for all default entries.
+    // Keep this read to one packet (< 1024 bytes) and do not automatically retry
+    // on a corrupted stream; reconnection is safer.
+    const partitionHeader=await loader.readFlash(0x8000,256);
+    if(!(partitionHeader instanceof Uint8Array)||partitionHeader.length!==256)
+      throw Error('Таблица разделов: ожидалось ровно 256 байт.');
+    const parts=parsePartitions(partitionHeader);
+    log('Найдено разделов в первых 256 байтах: '+parts.length+'. '+parts.map(p=>p.label+'@0x'+p.offset.toString(16)).join(', '));
     phase='проверка разделов';
-    log('Этап 6/6: сверяю раздел APP/NVS/OTA; Flash не менялась.');
+    log('Этап 6/6: проверяю NVS/OTA/APP в таблице из 256 байт, без записи Flash.');
     const app=assertSafeAppPartition(parts,image.length,boot);
     ready=true;
     $('deviceState').textContent='✓ '+chip+' / Flash '+flash+'; раздел '+app.label+' @0x10000 ('+Math.round(app.size/1024)+' КиБ). NVS не затрагивается.';
