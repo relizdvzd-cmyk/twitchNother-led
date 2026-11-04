@@ -117,7 +117,7 @@
             <button id="exportPlaylist" type="button" class="btn ghost">Скачать копию .json</button>
             <label class="btn ghost import-label" for="importPlaylist">Загрузить копию .json</label><input id="importPlaylist" type="file" accept=".json,application/json" hidden>
           </div>
-          <div class="note" style="margin-top:16px">Для блока даты нужна <strong>прошивка v5.1</strong>; её можно установить на вкладке «Обновления» без стирания настроек при совместимой разметке памяти. Для первого перехода с v3 возможна загрузка через Arduino IDE. Конструктор работает и без USB для подготовки сценария, но сохранять его в ESP32 может только v5.1. Wi-Fi из v3 сохранится, если не стирать память.</div>
+          <div class="note" style="margin-top:16px">Для блока даты нужна <strong>прошивка v5.1</strong>. Сейчас веб-прошивка временно отключена после обнаружения риска стирания загрузчика. Устанавливай скетч v5.1 обычной загрузкой через Arduino IDE. Конструктор работает без USB для подготовки сценария, но запись на ESP32 требует прошивки v5.1. Wi-Fi и сценарий сохранятся только если соответствующие области Flash не были стёрты.</div>
         </section>
       </div>
       <div id="tab-configure" class="tab stack" hidden>
