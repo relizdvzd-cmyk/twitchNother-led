@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#09121e">
   <meta name="description" content="Конструктор Twitch LED для ESP32 8×32 с русским шрифтом, счётчиками Twitch, датой и собственным текстом.">
-  <title>Twitch LED • Конструктор экрана ESP32 v5.3</title>
+  <title>Twitch LED • Конструктор экрана ESP32 v5.4</title>
   <style>
     :root { color-scheme:dark; --bg:#09111d; --surface:#111e30; --card:#14243a; --ink:#eaf4ff; --muted:#a7bbcf; --stroke:#30465d; --accent:#7e77ff; --accentlight:#aaa5ff; --green:#74e6b9; --warn:#ffce85; --red:#fc9094; --shadow:0 16px 48px rgba(0,0,0,.18); }
     * {box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;min-height:100vh;background:radial-gradient(900px 520px at 95% -15%, #24255e60, transparent 80%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
@@ -52,7 +52,7 @@
     <div class="topstatus"><span id="connectionDot" class="dot"></span><span id="connectionText">ESP32 не подключена</span></div>
   </header>
   <section class="hero">
-    <div><div class="eyebrow">Конструктор · v5.3</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
+    <div><div class="eyebrow">Конструктор · v5.4</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи. Соединяй соседние элементы в одну бегущую строку, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
     <div class="led-box"><p class="led-label">Дисплей · 8 × 32</p><div id="ledGrid" class="led-grid" aria-label="Анимированный предпросмотр сценария на светодиодной матрице"></div><p class="led-caption">Анимированный предпросмотр · приближённый шрифт</p></div>
   </section>
   <div id="banner" class="notice" role="status"></div>
@@ -71,12 +71,13 @@
             <button class="btn primary" id="addTwitch" type="button">＋ Счётчик Twitch</button>
             <button class="btn" id="addText" type="button">＋ Свой текст</button>
             <button class="btn" id="addDate" type="button">＋ Сегодняшняя дата</button>
+            <button class="btn" id="addJoin" type="button">＋ Соединение ↔</button>
           </div>
           <div class="builder-layout">
             <div class="builder-list-column">
               <div class="builder-subhead"><span>Последовательность</span><span id="itemCount">1 элемент</span></div>
               <div id="blocksList" class="blocks-list" role="list" aria-label="Последовательность элементов"></div>
-              <p class="help">Для изменения порядка используй стрелки ↑ ↓. Новые элементы вставляются после выбранного.</p>
+              <p class="help">Для соединения: выбери левый элемент и нажми «＋ Соединение ↔». Он объединит выбранный и следующий блоки в одну прокрутку. Стрелки ↑ ↓ меняют порядок.</p>
             </div>
             <div class="builder-editor" id="builderEditor">
               <div class="builder-subhead"><span>⚙ Настройки элемента</span><span id="selectedPosition">№ 1</span></div>
@@ -101,8 +102,18 @@
                 </select>
                 <p class="help">Формат <strong>ДД.ММ.ГГГГ</strong>. ESP32 получает время через Wi-Fi и NTP, дата пересчитывается при каждом показе. До синхронизации: <code>--.--.----</code>.</p>
               </div>
+              <div id="joinSettings" class="field" hidden>
+                <label for="itemJoinSeparator">Как соединить надписи</label>
+                <select class="input" id="itemJoinSeparator">
+                  <option value="SPACE">С одним пробелом</option>
+                  <option value="NONE">Вплотную, без пробела</option>
+                </select>
+                <p class="help">Элемент «Соединение» расположен между двумя обычными элементами. Они будут показаны подряд в одной прокрутке, с одной общей паузой в конце.</p>
+              </div>
+              <div id="timingSettings">
               <div class="field"><label for="itemSpeed">Скорость прокрутки <span id="speedLabel" class="muted">65 мс</span></label><input type="range" id="itemSpeed" min="35" max="140" step="5" value="65" class="range"><p class="help">Меньше значение — быстрее.</p></div>
               <div class="field"><label for="itemPause">Пауза между прокрутками</label><select class="input" id="itemPause"><option value="0">Без паузы</option><option value="300">0,3 секунды</option><option value="600">0,6 секунды</option><option value="1000">1 секунда</option><option value="1500">1,5 секунды</option><option value="2500">2,5 секунды</option></select></div>
+              </div>
               <div class="row"><button id="removeSelected" class="btn ghost" type="button">Удалить элемент</button></div>
             </div>
           </div>
@@ -117,7 +128,7 @@
             <button id="exportPlaylist" type="button" class="btn ghost">Скачать копию .json</button>
             <label class="btn ghost import-label" for="importPlaylist">Загрузить копию .json</label><input id="importPlaylist" type="file" accept=".json,application/json" hidden>
           </div>
-          <div class="note" style="margin-top:16px">Кириллица доступна в прошивке v5.2 и новее, дата — с v5.1. Для проверки обновления через сайт подготовлена v5.3: после установки на дисплее появится <code>V5.3 WEB OK</code>. Сценарий и Wi-Fi должны сохраниться при совместимой разметке (веб-обновлятор не стирает всю Flash).</div>
+          <div class="note" style="margin-top:16px">Кириллица поддерживается с v5.2, дата — с v5.1, а элемент «Соединение» требует новую прошивку <strong>v5.4</strong>. На старой прошивке можно собрать и сохранить JSON-черновик, но записать соединённый сценарий на ESP32 нельзя. Веб-обновлятор для классической ESP32 использует проверку памяти и не стирает всю Flash.</div>
         </section>
       </div>
       <div id="tab-configure" class="tab stack" hidden>
@@ -140,8 +151,8 @@
           <h3>Безопасное обновление через USB</h3>
           <p class="muted">Новый мастер обновления использует <strong>esptool-js</strong> и обновляет только приложение. Перед записью проверяет ESP32, Flash 4 МБ, загрузчик и раздел приложения, а после — контрольную сумму. Команды полной очистки Flash нет.</p>
           <div class="note warning"><strong>Важно:</strong> сперва сохрани сценарий в JSON во вкладке «Конструктор». Закрой монитор порта и отключи ESP32 в разделе «Устройство». Не отключай USB во время записи. Работает только с классической ESP32 Dev Module, 4 МБ, с разметкой по умолчанию.</div>
-          <div class="row"><a class="btn primary" href="updater.html">Открыть мастер обновления v5.3</a><a class="btn ghost" href="source/Twitch_LED_Builder_ESP32_v5_3.ino" download>Скачать v5.3 для Arduino IDE</a></div>
-          <p class="help">Ранее установленные v5.1/v5.2 поддерживаются при совпадающей схеме разделов. При несовместимой плате или разметке новый мастер остановится до записи. Прошивка через сайт ещё не проверена на реальной ESP32 — при необходимости остаётся способ восстановления через Arduino IDE.</p>
+          <div class="row"><a class="btn primary" href="updater.html">Открыть мастер обновления v5.3</a><a class="btn ghost" href="source/Twitch_LED_Builder_ESP32_v5_4.ino" download>Скачать v5.4 для Arduino IDE</a></div>
+          <p class="help">Ранее установленные v5.1/v5.2 поддерживаются при совпадающей схеме разделов. При несовместимой плате или разметке новый мастер остановится до записи. Предыдущая v5.3 была испытана на реальной ESP32; для v5.4 проверка на твоём устройстве ещё впереди. Старый мастер v5.3 пока доступен.</p>
         </section>
       </div>
       <div id="tab-journal" class="tab stack" hidden>
@@ -152,6 +163,6 @@
     </main>
   </div>
 </div>
-<script src="app.js?v=5.3.0" defer></script>
+<script src="app.js?v=5.4.0" defer></script>
 </body>
 </html>
