@@ -394,7 +394,8 @@ void loadBlocks() {
       if(pause>2500)pause=DEFAULT_PAUSE;
       if(t==0)v=normalizeStreamer(v);
       if(t==DATE_BLOCK && !dateZonePOSIX(v))v="BERLIN";
-      if(t>DATE_BLOCK || v.length()<1 || (t==TEXT_BLOCK && v.length()>MAX_CUSTOM_TEXT_BYTES)) {
+      if(t>JOIN_BLOCK || v.length()<1 || (t==JOIN_BLOCK && v!="SPACE" && v!="NONE") ||
+         (t==TEXT_BLOCK && v.length()>MAX_CUSTOM_TEXT_BYTES)) {
         Serial.println("ERR SAVED PLAYLIST; RESET TO DEFAULT");saved=0;break;
       }
       blocks[i].type=(BlockType)t;
@@ -404,6 +405,10 @@ void loadBlocks() {
       blocks[i].hasFollowers=false;
       blocks[i].nextFetchAt=0;
     }
+  }
+  if(saved>0 && !validLayout(blocks,saved)) {
+    Serial.println("ERR SAVED PLAYLIST: JOIN OR SIZE; RESET TO DEFAULT");
+    saved=0;
   }
   if(saved==0) {
     blocks[0].type=TWITCH_BLOCK;
@@ -427,7 +432,7 @@ void printStatus() {
   Serial.print(" wifi="); Serial.print(wifiSsid.length()?wifiSsid:"NOT_SET");
   Serial.print(" connected="); Serial.print(WiFi.status()==WL_CONNECTED?"YES":"NO");
   Serial.print(" count="); Serial.print(count);
-  Serial.print(" firmware=5.3 blocks=");Serial.print(blockCount);
+  Serial.print(" firmware=5.4 blocks=");Serial.print(blockCount);
   Serial.print(" clock=");Serial.println(time(nullptr)>1704067200?"SYNCED":"WAITING");
 }
 
@@ -435,7 +440,8 @@ void printPlaylist() {
   Serial.print("PLAYLIST COUNT ");Serial.println(blockCount);
   for(uint8_t i=0;i<blockCount;i++) {
     Serial.print("PLAYLIST ITEM "); Serial.print(i);
-    Serial.print(blocks[i].type==TWITCH_BLOCK?" TWITCH ":blocks[i].type==DATE_BLOCK?" DATE ":" TEXT ");
+    Serial.print(blocks[i].type==TWITCH_BLOCK?" TWITCH ":blocks[i].type==DATE_BLOCK?" DATE ":
+                 blocks[i].type==JOIN_BLOCK?" JOIN ":" TEXT ");
     Serial.print(blocks[i].speed);Serial.print(' ');Serial.print(blocks[i].pauseMs);
     Serial.print(' ');
     Serial.println(blocks[i].type==TEXT_BLOCK?b64Encode(blocks[i].value):blocks[i].value);
@@ -470,6 +476,10 @@ bool addStaging(const String& args) {
     next.type=DATE_BLOCK;
     next.value=val;
     if(!dateZonePOSIX(next.value)){Serial.println("ERR PLAYLIST: DATE TZ");return false;}
+  }else if(ty=="JOIN") {
+    next.type=JOIN_BLOCK;
+    next.value=val;
+    if(val!="SPACE" && val!="NONE"){Serial.println("ERR PLAYLIST: JOIN SEPARATOR");return false;}
   }else {Serial.println("ERR PLAYLIST: UNKNOWN TYPE");return false;}
   next.speed=(uint16_t)speed;
   next.pauseMs=(uint16_t)pause;
@@ -502,6 +512,10 @@ void handleCommand(String line) {
     }
     else if(sub=="COMMIT") {
       if(!stagingOpen||stagingCount==0){Serial.println("ERR PLAYLIST: EMPTY OR NOT STARTED");return;}
+      if(!validLayout(staging,stagingCount)){
+        Serial.println("ERR PLAYLIST: JOIN BETWEEN BLOCKS ONLY; GROUP MAX 375 BYTES");
+        return; // preserve old saved playlist on error
+      }
       blockCount=stagingCount;
       for(uint8_t i=0;i<blockCount;i++)blocks[i]=staging[i];
       saveBlocks();
@@ -513,7 +527,7 @@ void handleCommand(String line) {
     }
     else Serial.println("ERR PLAYLIST: UNKNOWN SUBCOMMAND");
   }
-  else if(cmd=="VERSION") Serial.println("VERSION TWITCHLED 5.3 PLAYLIST2 DATE1 CYRILLIC1 WEBUPDATE1");
+  else if(cmd=="VERSION") Serial.println("VERSION TWITCHLED 5.4 PLAYLIST3 DATE1 CYRILLIC1 JOIN1 WEBUPDATE1");
   else if(cmd=="STREAMER") {
     String ch=normalizeStreamer(arg);
     if(!ch.length()){Serial.println("ERR STREAMER: INVALID");return;}
@@ -555,11 +569,13 @@ void handleCommand(String line) {
     Serial.println("OK REFRESH SCHEDULED");
   }
   else if(cmd=="HELP") {
-    Serial.println("Twitch LED Builder v5.3; 115200 / Newline");
+    Serial.println("Twitch LED Builder v5.4; 115200 / Newline");
     Serial.println("VERSION | STATUS | PLAYLIST GET | PLAYLIST BEGIN");
     Serial.println("PLAYLIST ADD TWITCH pwgood 65 300");
     Serial.println("PLAYLIST ADD TEXT SEVMTE8= 65 300");
     Serial.println("PLAYLIST ADD DATE BERLIN 65 300");
+    Serial.println("PLAYLIST ADD JOIN SPACE 65 0 (or JOIN NONE)");
+    Serial.println("JOIN between content blocks = one continuous scroll.");
     Serial.println("CLOCK | DATE: DD.MM.YYYY via NTP; timezone per block");
     Serial.println("PLAYLIST COMMIT | PLAYLIST CANCEL | REFRESH");
     Serial.println("WIFI MySSID|MyPassword | STREAMER pwgood");
@@ -683,12 +699,12 @@ void setup() {
   loadBlocks();
   WiFi.mode(WIFI_STA);WiFi.persistent(false);
   currentBlock=0;
-  showText("V5.3 WEB OK",55,250); // Visible confirmation of successful update
+  showText("V5.4 JOIN OK",55,250); // Visible confirmation of successful update
   bootAnnouncement=true;
   bootAt=millis();lastConfigAt=millis();
   lastNetworkAt=millis()-NETWORK_SPACING_MS;
   lastClockConnectAt=millis()-CLOCK_CONNECT_RETRY_MS;
-  Serial.println("Twitch LED Builder v5.3 READY");
+  Serial.println("Twitch LED Builder v5.4 READY");
   printStatus();
 }
 
