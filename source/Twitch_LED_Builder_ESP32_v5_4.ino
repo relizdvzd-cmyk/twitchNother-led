@@ -299,7 +299,8 @@ String formattedDate(const String& zone) {
 
 // JOIN is a marker separating adjacent content blocks; one merged scroll.
 // SPACE adds a single blank, NONE concatenates without adding a character.
-String displayPart(const DisplayBlock& b) {
+String displayPart(uint8_t index) {
+  const DisplayBlock& b=blocks[index];
   if(b.type==TWITCH_BLOCK) {
     String text=b.value;
     text.toUpperCase();
@@ -311,7 +312,8 @@ String displayPart(const DisplayBlock& b) {
   return b.value;
 }
 
-bool validLayout(const DisplayBlock* list,uint8_t count) {
+bool validLayout(uint8_t count,bool fromStaging) {
+  const DisplayBlock* list=fromStaging?staging:blocks;
   if(count==0||count>MAX_BLOCKS)return false;
   size_t groupBytes=0;
   for(uint8_t i=0;i<count;i++) {
@@ -339,11 +341,11 @@ void showCurrentBlock() {
   if(blocks[currentBlock].type==JOIN_BLOCK)currentBlock=0;
   const uint8_t first=currentBlock;
   uint8_t cursor=first;
-  String shown=displayPart(blocks[first]);
+  String shown=displayPart(first);
   while(cursor+2<blockCount && blocks[cursor+1].type==JOIN_BLOCK &&
         blocks[cursor+2].type!=JOIN_BLOCK) {
     if(blocks[cursor+1].value=="SPACE")shown+=' ';
-    shown+=displayPart(blocks[cursor+2]);
+    shown+=displayPart(cursor+2);
     cursor+=2;
   }
   currentGroupEnd=cursor;
@@ -406,7 +408,7 @@ void loadBlocks() {
       blocks[i].nextFetchAt=0;
     }
   }
-  if(saved>0 && !validLayout(blocks,saved)) {
+  if(saved>0 && !validLayout(saved,false)) {
     Serial.println("ERR SAVED PLAYLIST: JOIN OR SIZE; RESET TO DEFAULT");
     saved=0;
   }
@@ -512,7 +514,7 @@ void handleCommand(String line) {
     }
     else if(sub=="COMMIT") {
       if(!stagingOpen||stagingCount==0){Serial.println("ERR PLAYLIST: EMPTY OR NOT STARTED");return;}
-      if(!validLayout(staging,stagingCount)){
+      if(!validLayout(stagingCount,true)){
         Serial.println("ERR PLAYLIST: JOIN BETWEEN BLOCKS ONLY; GROUP MAX 375 BYTES");
         return; // preserve old saved playlist on error
       }
