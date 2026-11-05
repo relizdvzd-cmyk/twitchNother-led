@@ -20,7 +20,7 @@
   let port=null, reader=null, readTask=null, connected=false, busy=false, fw5=false, firmwareVersion=0;
   let rxBuffer='', pendingReply=null, incomingPlaylist=null;
   let counts=new Map();
-  let previewTimer=null, previewIndex=0, previewColumn=0, previewColumns=[];
+  let previewTimer=null, previewIndex=0, previewColumn=0, previewColumns=[], previewGroupEnd=0;
   const logEl=$('log');
   const navButtons=Array.from(document.querySelectorAll('nav button[data-tab]'));
   const stamp=()=>new Date().toLocaleTimeString('ru-RU');
@@ -646,12 +646,26 @@
       const dot=document.createElement('i');holder.append(dot);dots.push(dot);
     }
   }
-  function currentPreviewMessage(){
-    const item=blocks[previewIndex]||blocks[0];
-    if(item.type==='text')return matrixText(item.value||' ');
+  function previewPart(item){
+    if(item.type==='text')return item.value||' ';
     if(item.type==='date')return localDate(item.value);
-    const login=normalizeStreamer(item.value)||'PWGOOD';
-    return login.toUpperCase()+': '+(counts.get(login)||'123456');
+    if(item.type==='twitch'){
+      const login=normalizeStreamer(item.value)||'pwgood';
+      return login.toUpperCase()+': '+(counts.get(login)||'123456');
+    }
+    return '';
+  }
+  function currentPreviewMessage(){
+    if(blocks[previewIndex]?.type==='join')previewIndex=0;
+    let at=previewIndex;
+    let message=previewPart(blocks[at]||defaultBlock());
+    while(at+2<blocks.length&&blocks[at+1].type==='join'&&blocks[at+2].type!=='join'){
+      if(blocks[at+1].value==='SPACE')message+=' ';
+      message+=previewPart(blocks[at+2]);
+      at+=2;
+    }
+    previewGroupEnd=at;
+    return matrixText(message);
   }
   function generatePreview(){
     const message=currentPreviewMessage();
@@ -671,7 +685,7 @@
   }
   function restartPreview(){
     if(!blocks.length)return;
-    if(previewIndex>=blocks.length)previewIndex=0;
+    previewIndex=0; // rerender the entire merged scenario from its first group
     previewColumn=0;previewColumns=generatePreview();
     if(previewTimer)clearTimeout(previewTimer);
     previewTick();
@@ -683,7 +697,11 @@
       for(let y=0;y<8;y++)dots[y*32+x].classList.toggle('on',Boolean(mask&(1<<y)));
     }
     previewColumn++;
-    if(previewColumn+32>=columns.length){previewIndex=(previewIndex+1)%blocks.length;previewColumn=0;previewColumns=generatePreview();}
+    if(previewColumn+32>=columns.length){
+      previewIndex=(previewGroupEnd+1)%blocks.length;
+      previewColumn=0;
+      previewColumns=generatePreview();
+    }
     const speed=clamp(blocks[previewIndex]?.speed,35,140,65);
     previewTimer=setTimeout(previewTick,speed);
   }
