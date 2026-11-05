@@ -1,4 +1,4 @@
-/* Twitch Followers LED — USB settings + typed playlist constructor v5.2.
+/* Twitch Followers LED — USB settings + typed playlist constructor v5.4.
    All browser-to-ESP32 configuration happens locally over Web Serial.
    The only persisted browser data is the display playlist (no Wi-Fi secret).
 */
@@ -58,23 +58,49 @@
     const data=atob(b64);const bytes=Uint8Array.from(data,character=>character.charCodeAt(0));
     return new TextDecoder('utf-8',{fatal:true}).decode(bytes);
   };
+  function validConnectorPositions(list) {
+    if(!Array.isArray(list)||list.length<1)return false;
+    for(let i=0;i<list.length;i++){
+      if(list[i].type==='join'&&(i===0||i===list.length-1||
+         list[i-1].type==='join'||list[i+1].type==='join'))return false;
+    }
+    return true;
+  }
   function sanitizeBlock(item) {
-    if(!item || !['twitch','text','date'].includes(item.type))throw Error('Неизвестный тип элемента');
+    if(!item || !['twitch','text','date','join'].includes(item.type))throw Error('Неизвестный тип элемента');
     let value=String(item.value??'').trim();
     if(item.type==='twitch'){
       value=normalizeStreamer(value);
       if(!value)throw Error('Проверь логин Twitch — латиница, цифры и _');
     }else if(item.type==='date'){
       if(!Object.hasOwn(DATE_ZONES,value))throw Error('Выбери часовой пояс для даты');
+    }else if(item.type==='join'){
+      value=value.toUpperCase();
+      if(!['SPACE','NONE'].includes(value))throw Error('Выбери пробел или соединение вплотную');
     }else{
       if(!value || /[\r\n\x00-\x1f]/.test(value))throw Error('Свой текст не должен быть пустым или содержать переносы строк');
       if(byteLength(value)>MAX_TEXT_BYTES)throw Error(`Свой текст не должен превышать ${MAX_TEXT_BYTES} байт UTF-8`);
     }
-    return {type:item.type,value,speed:clamp(item.speed,35,140,65),pauseMs:clamp(item.pauseMs,0,2500,300)};
+    return {type:item.type,value,speed:item.type==='join'?65:clamp(item.speed,35,140,65),
+      pauseMs:item.type==='join'?0:clamp(item.pauseMs,0,2500,300)};
   }
   function validatePlaylist(arr){
-    if(!Array.isArray(arr)||arr.length<1||arr.length>MAX_BLOCKS)throw Error('Нужен хотя бы 1 элемент (максимум 12)');
-    return arr.map(sanitizeBlock);
+    if(!Array.isArray(arr)||arr.length<1||arr.length>MAX_BLOCKS)
+      throw Error('Нужен хотя бы 1 элемент (максимум 12)');
+    const clean=arr.map(sanitizeBlock);
+    if(!validConnectorPositions(clean))
+      throw Error('Соединение должно находиться строго между двумя обычными элементами');
+    let groupBytes=0;
+    for(let i=0;i<clean.length;i++){
+      const b=clean[i];
+      if(b.type==='join')groupBytes+=b.value==='SPACE'?1:0;
+      else {
+        if(i===0||clean[i-1].type!=='join')groupBytes=0;
+        groupBytes+=b.type==='text'?byteLength(b.value):b.type==='date'?10:45;
+      }
+      if(groupBytes>375)throw Error('Соединённая строка слишком длинная (лимит 375 байт)');
+    }
+    return clean;
   }
   function loadLocalDraft(){
     try{
@@ -88,14 +114,16 @@
   function markDirty(){dirty=true;persistDraft();updateBuilderButtons();}
   const hasCyrillicText=()=>blocks.some(b=>b.type==='text'&&/[А-Яа-яЁё]/.test(b.value));
   function updateBuilderButtons(){
-    const needsNewFirmware=(blocks.some(b=>b.type==='date')&&firmwareVersion<5.1)||(hasCyrillicText()&&firmwareVersion<5.2);
+    const needsNewFirmware=(blocks.some(b=>b.type==='date')&&firmwareVersion<5.1)||
+      (hasCyrillicText()&&firmwareVersion<5.2)||
+      (blocks.some(b=>b.type==='join')&&firmwareVersion<5.4);
     $('savePlaylist').disabled=!(connected&&fw5&&!needsNewFirmware&&!busy&&blocks.length>0);
     $('reloadPlaylist').disabled=!(connected&&fw5&&!busy);
     $('builderConnect').disabled=connected||busy;
     $('playlistState').dataset.dirty=String(dirty);
     if(!connected) notify('Черновик в браузере. Подключи ESP32, чтобы записать сценарий на устройство.');
     else if(!fw5)notify('Подключено. Для конструктора нужна прошивка v5 и новее.');
-    else if(needsNewFirmware)notify('Для настоящей кириллицы нужна прошивка v5.2 (через Arduino IDE); блок даты требует v5.1.');
+    else if(needsNewFirmware)notify('Для «Соединения» нужна прошивка v5.4, кириллица — с v5.2, дата — с v5.1.');
     else if(busy)notify('Передача настроек по USB…');
     else if(dirty)notify('Есть несохранённые изменения. Нажми «Сохранить сценарий на ESP32».');
     else notify('Сценарий загружен с ESP32 и готов к работе.');
@@ -140,7 +168,7 @@
     if(begin) {
       const n=Number(begin[1]);incomingPlaylist=n<=MAX_BLOCKS?{expected:n,blocks:[]}:null;
     }
-    const item=s.match(/^PLAYLIST ITEM (\d+) (TWITCH|TEXT|DATE) (\d+) (\d+) (.+)$/);
+    const item=s.match(/^PLAYLIST ITEM (\d+) (TWITCH|TEXT|DATE|JOIN) (\d+) (\d+) (.+)$/);
     if(item&&incomingPlaylist){
       try{
         const i=Number(item[1]);if(i!==incomingPlaylist.blocks.length)throw Error('Порядок блоков не совпал');
@@ -356,6 +384,7 @@
     if(busy)return;
     if(!connected||!fw5){banner('Подключи ESP32 с прошивкой v5 или новее.');return;}
     if(blocks.some(b=>b.type==='date')&&firmwareVersion<5.1){banner('Для даты нужна прошивка v5.1 и новее.');return;}
+    if(blocks.some(b=>b.type==='join')&&firmwareVersion<5.4){banner('Для соединения элементов нужна прошивка v5.4 или новее. Пока можно экспортировать JSON.');return;}
     if(hasCyrillicText()&&firmwareVersion<5.2){banner('Для настоящей кириллицы установи v5.2 через Arduino IDE.');return;}
     let clean;
     try{clean=validatePlaylist(blocks);}catch(e){banner('Ошибка сценария: '+e.message);return;}
