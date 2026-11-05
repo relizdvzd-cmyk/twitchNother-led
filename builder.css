@@ -32,3 +32,14 @@
 
 .block-card.date .block-type{color:#ffce7b}
 #dateSettings strong{color:#f4fbff}
+/* JOIN is a connector, not an independently scrolling display item. */
+.block-card.join{
+  border-style:dashed;
+  border-color:#ab91f7;
+  background:linear-gradient(110deg,#211a3c,#142036);
+}
+.block-card.join .block-number{background:#4f3977;color:#f1deff;}
+.block-card.join .block-type{color:#d7b2ff;}
+.block-card.join .block-value{font-weight:550;color:#d9c7ee;}
+#joinSettings .help{color:#bba8d9;}
+#timingSettings[hidden],#joinSettings[hidden]{display:none!important;}
