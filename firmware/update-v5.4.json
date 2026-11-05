@@ -8,11 +8,11 @@
   "app_offset": 65536,
   "file": "twitch-led-v5.4.bin",
   "size": 1076560,
-  "sha256": "e1eb0edeaf6737d1b8ef9bea4f664083e1cae087f71971d03f017deaed7cdcaa",
-  "md5": "cfa4b980ea860d554d14757e528db327",
+  "sha256": "2d759c956414904830f4f152c53cc2ee753cf6d8b0573b2865461b63bd0f64e7",
+  "md5": "368b203539038e9f6f1a8a5d59ef105c",
   "partition_table_bytes": 3072,
   "partition_table_md5": "a039c66cd3488176037b616b7595fe72",
-  "notes": "Новый JOIN соединяет блоки в одну прокрутку; русский текст и дата, V5.4 JOIN OK.",
+  "notes": "JOIN соединяет соседние блоки в одну строку; кириллица, дата; V5.4 JOIN OK",
   "hardware_tested": false,
   "backup_parts": [
     {
