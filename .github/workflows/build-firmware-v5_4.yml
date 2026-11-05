@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'source/Twitch_LED_Builder_ESP32_v5_4.ino'
+      - '.github/workflows/build-firmware-v5_4.yml'
+      - 'tests/test_join_v54.mjs'
 permissions:
   contents: write
 concurrency:
