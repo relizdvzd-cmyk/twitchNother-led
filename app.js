@@ -280,7 +280,11 @@
   $('customCommand').addEventListener('keydown',e=>{if(e.key==='Enter')$('sendCommand').click();});
 
   // --- Builder: add, select, edit, reorder, delete, save ---
-  function itemName(block){return block.type==='twitch'?block.value||'Не указан логин':block.type==='date'?localDate(block.value):block.value||'Пустой текст';}
+  function itemName(block) {
+    if(block.type==='join')return block.value==='NONE'?'Соединить без пробела':'Соединить с пробелом';
+    return block.type==='twitch'?block.value||'Не указан логин':
+      block.type==='date'?localDate(block.value):block.value||'Пустой текст';
+  }
   function renderList(){
     const list=$('blocksList');list.replaceChildren();
     blocks.forEach((block,index)=>{
@@ -289,7 +293,8 @@
       card.setAttribute('role','listitem');
       const num=document.createElement('span');num.className='block-number';num.textContent=index+1;
       const main=document.createElement('button');main.type='button';main.className='block-main';main.dataset.action='select';main.dataset.index=index;
-      const type=document.createElement('span');type.className='block-type';type.textContent=block.type==='twitch'?'TWITCH · ФОЛЛОВЕРЫ':block.type==='date'?'СЕГОДНЯШНЯЯ ДАТА':'СВОЙ ТЕКСТ';
+      const type=document.createElement('span');type.className='block-type';type.textContent=block.type==='twitch'?'TWITCH · ФОЛЛОВЕРЫ':block.type==='date'?'СЕГОДНЯШНЯЯ ДАТА':
+        block.type==='join'?'↔ СОЕДИНЕНИЕ':'СВОЙ ТЕКСТ';
       const value=document.createElement('span');value.className='block-value';value.textContent=shorten(itemName(block));
       main.append(type,value);main.title='Открыть настройки элемента';
       const actions=document.createElement('div');actions.className='block-actions';
@@ -306,16 +311,23 @@
     $('addText').disabled=n>=MAX_BLOCKS;
     $('addDate').disabled=n>=MAX_BLOCKS;
     $('addTwitch').disabled=n>=MAX_BLOCKS;
+    $('addJoin').disabled=n>=MAX_BLOCKS||selected>=n-1||
+      blocks[selected].type==='join'||blocks[selected+1]?.type==='join';
+    $('addJoin').title=$('addJoin').disabled?'Выбери первый из двух соседних обычных блоков':'Вставить соединитель после выбранного блока';
     $('removeSelected').disabled=n===1;
   }
   function renderEditor(){
     selected=Math.min(selected,blocks.length-1);
     const block=blocks[selected];
     $('selectedPosition').textContent='№ '+(selected+1);
-    $('editHeading').textContent=block.type==='twitch'?'Счётчик фолловеров Twitch':block.type==='date'?'Сегодняшняя дата':'Произвольный текст';
+    $('editHeading').textContent=block.type==='twitch'?'Счётчик фолловеров Twitch':
+      block.type==='date'?'Сегодняшняя дата':block.type==='join'?'Соединение двух элементов':'Произвольный текст';
     $('twitchSettings').hidden=block.type!=='twitch';
     $('textSettings').hidden=block.type!=='text';
     $('dateSettings').hidden=block.type!=='date';
+    $('joinSettings').hidden=block.type!=='join';
+    $('timingSettings').hidden=block.type==='join';
+    $('itemJoinSeparator').value=block.type==='join'?block.value:'SPACE';
     $('itemDateZone').value=block.type==='date'?block.value:'BERLIN';
     $('itemStreamer').value=block.type==='twitch'?block.value:'';
     $('itemText').value=block.type==='text'?block.value:'';
@@ -333,26 +345,49 @@
     if(action==='select'){
       selected=index;renderList();renderEditor();
       $('builderEditor').scrollIntoView({behavior:'smooth',block:'nearest'});
-    }else if(action==='up'&&index>0){
-      [blocks[index-1],blocks[index]]=[blocks[index],blocks[index-1]];selected=index-1;markDirty();renderBuilder();
-    }else if(action==='down'&&index<blocks.length-1){
-      [blocks[index+1],blocks[index]]=[blocks[index],blocks[index+1]];selected=index+1;markDirty();renderBuilder();
+    }else if((action==='up'&&index>0)||(action==='down'&&index<blocks.length-1)){
+      const other=action==='up'?index-1:index+1;
+      const candidate=blocks.slice();
+      [candidate[index],candidate[other]]=[candidate[other],candidate[index]];
+      if(!validConnectorPositions(candidate)){
+        banner('Нельзя переместить соединение на край или поставить два соединения рядом.');
+        return;
+      }
+      blocks=candidate;selected=other;markDirty();renderBuilder();
     }else if(action==='remove'&&blocks.length>1){
-      blocks.splice(index,1);selected=Math.min(index,blocks.length-1);markDirty();renderBuilder();
+      removeBlock(index);
     }
   });
+  function removeBlock(index) {
+    blocks.splice(index,1);
+    // Deleting content removes markers that no longer have two neighbors.
+    blocks=blocks.filter((b,i,arr)=>b.type!=='join'||
+      (i>0&&i+1<arr.length&&arr[i-1].type!=='join'&&arr[i+1].type!=='join'));
+    if(!blocks.length)blocks=[defaultBlock()];
+    selected=Math.min(index,blocks.length-1);markDirty();renderBuilder();
+  }
   function addBlock(type){
     if(blocks.length>=MAX_BLOCKS){banner('Можно добавить не более 12 элементов.');return;}
+    if(type==='join') {
+      if(selected>=blocks.length-1||blocks[selected].type==='join'||blocks[selected+1].type==='join'){
+        banner('Сначала выбери первый из двух соседних обычных элементов.');return;
+      }
+      blocks.splice(selected+1,0,{type:'join',value:'SPACE',speed:65,pauseMs:0});
+      selected+=1;markDirty();renderBuilder();$('itemJoinSeparator').focus();
+      return;
+    }
     const newBlock=type==='date'?{type,value:'BERLIN',speed:65,pauseMs:300}:type==='text'?{type,value:'Привет, мир!',speed:65,pauseMs:300}:defaultBlock();
+    // Insertion after JOIN is fine (keeps the marker between two contents).
     blocks.splice(selected+1,0,newBlock);selected+=1;markDirty();renderBuilder();
     (type==='date'?$('itemDateZone'):type==='text'?$('itemText'):$('itemStreamer')).focus();
   }
   $('addTwitch').addEventListener('click',()=>addBlock('twitch'));
   $('addText').addEventListener('click',()=>addBlock('text'));
   $('addDate').addEventListener('click',()=>addBlock('date'));
+  $('addJoin').addEventListener('click',()=>addBlock('join'));
   $('removeSelected').addEventListener('click',()=>{
     if(blocks.length<=1)return;
-    blocks.splice(selected,1);selected=Math.min(selected,blocks.length-1);markDirty();renderBuilder();
+    removeBlock(selected);
   });
   $('itemStreamer').addEventListener('input',e=>{
     if(blocks[selected].type!=='twitch')return;
@@ -370,6 +405,10 @@
     $('textBytes').textContent=len+' / '+MAX_TEXT_BYTES+' байт';
     $('textBytes').style.color=len>MAX_TEXT_BYTES?'#fc9094':'';
     markDirty();renderList();restartPreview();
+  });
+  $('itemJoinSeparator').addEventListener('change',e=>{
+    if(blocks[selected].type!=='join')return;
+    blocks[selected].value=e.target.value;markDirty();renderList();restartPreview();
   });
   $('itemDateZone').addEventListener('change',e=>{
     if(blocks[selected].type!=='date')return;
@@ -394,7 +433,7 @@
       await sendAck('PLAYLIST BEGIN','OK PLAYLIST BEGIN','Начало передачи сценария.');
       for(let i=0;i<clean.length;i++){
         const item=clean[i],encoded=item.type==='text'?byteToB64(item.value):item.value;
-        await sendAck(`PLAYLIST ADD ${item.type.toUpperCase()} ${encoded} ${item.speed} ${item.pauseMs}`,'OK PLAYLIST ADD',`Блок ${i+1}/${clean.length}: ${item.type==='date'?'дата':item.type==='text'?'текст':'Twitch'}`);
+        await sendAck(`PLAYLIST ADD ${item.type.toUpperCase()} ${encoded} ${item.speed} ${item.pauseMs}`,'OK PLAYLIST ADD',`Блок ${i+1}/${clean.length}: ${item.type==='date'?'дата':item.type==='text'?'текст':item.type==='join'?'соединение':'Twitch'}`);
       }
       await sendAck('PLAYLIST COMMIT','OK PLAYLIST SAVED','Запись сценария во флеш-память ESP32.');
       committed=true;blocks=clean;dirty=false;persistDraft();
