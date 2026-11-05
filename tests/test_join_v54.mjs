@@ -7,7 +7,7 @@ const firmware=readFileSync('source/Twitch_LED_Builder_ESP32_v5_4.ino','utf8');
 const app=readFileSync('app.js','utf8');
 const html=readFileSync('index.html','utf8');
 for(const token of [
-  'JOIN_BLOCK = 3','validLayout(staging,stagingCount)',
+  'JOIN_BLOCK = 3','validLayout(stagingCount,true)',
   'blocks[cursor+1].type==JOIN_BLOCK','(currentGroupEnd+1)%blockCount',
   'PLAYLIST ADD JOIN SPACE','PLAYLIST3 DATE1 CYRILLIC1 JOIN1',
   'showText("V5.4 JOIN OK"'
