@@ -1,6 +1,6 @@
 {
   "available": true,
-  "version": "5.3",
+  "version": "5.4",
   "protocol": "esp32-app-only-no-erase-v1",
   "board": "ESP32",
   "flash_size": "4MB",
@@ -12,7 +12,7 @@
   "md5": "cfa4b980ea860d554d14757e528db327",
   "partition_table_bytes": 3072,
   "partition_table_md5": "a039c66cd3488176037b616b7595fe72",
-  "notes": "Русские буквы, NTP-дата, тестовый баннер V5.4 JOIN OK",
+  "notes": "Новый JOIN соединяет блоки в одну прокрутку; русский текст и дата, V5.4 JOIN OK.",
   "hardware_tested": false,
   "backup_parts": [
     {
