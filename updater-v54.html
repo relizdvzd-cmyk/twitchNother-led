@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#09121e">
+<title>Twitch LED — веб-обновление v5.4 · JOIN</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#e5efff;background:#09111d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(850px 400px at 100% -20%,#45479b40,transparent 70%),#09111d;line-height:1.55}
+main{width:min(850px,calc(100% - 30px));margin:auto;padding:24px 0 66px}a{color:#ada8ff}a:hover{color:#ddd9ff}
+.top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:8px 0 22px;border-bottom:1px solid #2a3952}
+h1{font-size:24px;margin:0;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 12px}p{margin:9px 0;color:#b7c9dc}
+.hero{padding:28px 0 16px}.eyebrow{font-size:12px;color:#b0a5ff;font-weight:750;letter-spacing:1.2px}.hero h2{font-size:clamp(25px,4.2vw,34px)}
+.card{background:#111e30;border:1px solid #2d405d;border-radius:18px;padding:22px;margin:16px 0;box-shadow:0 16px 40px #0002}
+.callout{border:1px solid #685b3b;background:#2d241b;padding:13px 16px;border-radius:12px;color:#ffe0b0;margin:15px 0}
+.callout strong{color:#ffeac8}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin:16px 0}
+.box{border:1px solid #34465d;border-radius:10px;padding:12px;background:#0d192a}.box small{display:block;color:#8ea3b8}.box strong{display:block;font-size:14px;margin-top:2px}
+.action{background:#6c64ed;border:1px solid #a5a0ff;border-radius:10px;color:white;padding:11px 15px;font:inherit;font-weight:700;cursor:pointer;min-height:43px}
+.action:disabled{opacity:.38;cursor:not-allowed}.action.secondary{background:#1a3551;border-color:#44627e}
+.action:hover:not(:disabled){filter:brightness(1.12)}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.checkbox{display:flex;align-items:flex-start;gap:9px;margin:16px 0;color:#d2e0f1}.checkbox input{width:18px;height:18px;margin-top:4px;accent-color:#796df6}
+#progress{width:100%;height:15px;accent-color:#8b8bff}#log{white-space:pre-wrap;overflow-wrap:anywhere;border-radius:10px;background:#070e18;border:1px solid #304258;color:#bde9da;padding:12px;font:12px/1.45 ui-monospace,Consolas,monospace;min-height:130px;max-height:290px;overflow-y:auto}
+#state{font-weight:700;color:#f3dba9}#state.ok{color:#89ebc2}#state.err{color:#ffb6b6}.muted{font-size:13px;color:#8fa7bb}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.card{padding:16px}.top{align-items:flex-start}}
+</style>
+</head>
+<body>
+<main>
+<header class="top"><h1>◈ Twitch Followers LED</h1><a href="index.html">← Вернуться в конструктор</a></header>
+<section class="hero"><div class="eyebrow">USB FLASHER · 5.4 · ESP32</div><h2>v5.4 — Соединение блоков без стирания настроек</h2><p>Вместо прежнего ESP Web Tools — отдельный мастер с проверкой платы, разметки и контрольной суммы. Он записывает <strong>только приложение по адресу 0x10000</strong>; загрузчик, NVS и Wi-Fi не трогает.</p></section>
+<section class="card">
+  <h2>1. Проверка пакета</h2>
+  <div class="grid"><div class="box"><small>Новая версия</small><strong id="version">Проверяем...</strong></div><div class="box"><small>Плата</small><strong>ESP32 classic · Flash 4 МБ</strong></div><div class="box"><small>Область записи</small><strong>APP 0x10000</strong></div></div>
+  <p id="packageStatus" role="status">Проверка SHA-256 опубликованной прошивки...</p>
+</section>
+<section class="card">
+  <h2>2. Проверка ESP32</h2>
+  <p>Закрой монитор порта Arduino IDE и отключи устройство на главной странице конфигуратора. Затем выбери USB Serial, например COM4. Проверка не записывает данные. Версия диагностики 5.3.3 не считывает таблицу по USB: ESP32 вычисляет её MD5 сама, а сайт сравнивает сумму с точным эталоном стандартной разметки 4 МБ. Несовпадение безопасно блокирует запись.</p>
+  <div class="row"><button id="connect" class="action" disabled>Проверить устройство через USB</button><button id="disconnect" class="action secondary" disabled>Отключить</button></div>
+  <label class="checkbox"><input id="manualBoot" type="checkbox"><span><strong>Ручной BOOT (если автоматическое соединение не работает).</strong> Перед нажатием «Проверить устройство» удерживай BOOT, кратко нажми EN/RESET, отпусти EN, затем BOOT. После этого выбери эту опцию: программа не будет переключать DTR/RTS, а напрямую подключится к загрузчику.</span></label>
+  <p class="muted">Если USB-соединение прерывается: отключи монитор порта Arduino IDE, попробуй другой качественный дата-кабель и прямой USB-порт без хаба. После неудачной проверки можно нажать EN/RESET, чтобы запустить прежнюю прошивку.</p>
+  <p id="deviceState">Плата не проверена.</p>
+</section>
+<section class="card">
+  <h2>3. Подтверждение и запись</h2>
+  <div class="callout"><strong>Перед установкой:</strong> сохрани копию сценария в JSON на главной странице. Не отключай USB во время записи. Если что-то пойдёт не так, восстановление по-прежнему возможно через Arduino IDE. На физической плате этот обновлятор пока не испытан.</div>
+  <label class="checkbox"><input id="ack" type="checkbox" disabled><span>Я сохранил сценарий и понимаю, что обновляю классическую ESP32 Dev Module 4 МБ с проверенной стандартной разметкой.</span></label>
+  <div class="row"><button id="flash" class="action" disabled>Установить прошивку v5.4</button><span id="state" aria-live="polite">Ожидание проверки.</span></div>
+  <progress id="progress" value="0" max="100"></progress><p class="muted" id="percentage">0%</p>
+</section>
+<section class="card"><h2>Журнал</h2><pre id="log" aria-live="polite">Ожидание...</pre><p class="muted">Проверка после записи: устройство должно показать <code>V5.4 JOIN OK</code>; команда <code>VERSION</code> вернёт 5.3. Запись проводится только по разрешению браузера и нажатию кнопки.</p></section>
+</main>
+<script type="module" src="updater-v54.js?v=5.4.0"></script>
+</body>
+</html>
