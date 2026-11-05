@@ -77,7 +77,7 @@ jobs:
           }
           for kind,filename in names.items(): shutil.copyfile(paths[kind],target/filename)
           release={
-            'available':True,'version':'5.3',
+            'available':True,'version':'5.4',
             'protocol':'esp32-app-only-no-erase-v1',
             'board':'ESP32','flash_size':'4MB','partition_scheme':'default',
             'app_offset':65536,'file':names['app'],'size':len(app),
@@ -85,7 +85,7 @@ jobs:
             'md5':hashlib.md5(app).hexdigest(),
             'partition_table_bytes':len(table),
             'partition_table_md5':hashlib.md5(table).hexdigest(),
-            'notes':'Русские буквы, NTP-дата, тестовый баннер V5.4 JOIN OK',
+            'notes':'JOIN соединяет соседние блоки в одну строку; кириллица, дата; V5.4 JOIN OK',
             'hardware_tested':False,
             'backup_parts':[
               {'file':names['bootloader'],'offset':0x1000},
