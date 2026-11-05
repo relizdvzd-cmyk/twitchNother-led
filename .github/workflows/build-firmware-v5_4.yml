@@ -110,7 +110,7 @@ jobs:
             git rebase --abort
             current_source=$(sha256sum source/Twitch_LED_Builder_ESP32_v5_4.ino | cut -d' ' -f1)
             head_source=$(git show origin/main:source/Twitch_LED_Builder_ESP32_v5_4.ino | sha256sum | cut -d' ' -f1)
-            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v5.4.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.3'"; then
+            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v5.4.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.4'"; then
               echo "Another run published a validated v5.4 package for the same source; skipping duplicate binary."
               exit 0
             fi
