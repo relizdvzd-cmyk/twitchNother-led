@@ -6,7 +6,7 @@
 <meta name="description" content="Twitch LED Logic — визуальное программирование матрицы MAX7219 в стиле Scratch">
 <title>Twitch LED Logic · Экспериментальный конструктор v6.2</title>
 <link rel="stylesheet" href="./logic-v62.css?v=6.2.0">
-<script src="./logic-v62.js?v=6.2.0" defer></script>
+<script src="./logic-v62.js?v=6.2.1" defer></script>
 </head>
 <body>
 <header class="topbar">
@@ -84,6 +84,8 @@
      <div class="overline">04 / УСТРОЙСТВО</div><h2>USB → ESP32</h2>
      <div id="deviceStatus" class="status">● Не подключено</div>
      <div class="row"><button id="usbConnect" class="btn">Подключить</button><button id="usbDisconnect" class="btn quiet" disabled>Отключить</button></div>
+      <button id="checkFirmware" class="btn quiet full" disabled type="button" style="margin:8px 0">↻ Проверить версию прошивки</button>
+      <p class="hint">Если USB подключён, но версия не определилась, нажми EN/RESET на ESP32 и «Проверить версию». Точный ответ появится в «Протокол и диагностика».</p>
      <button id="sendScript" class="btn primary full" disabled>Записать программу на ESP32</button>
      <div class="row"><button id="stopScript" class="btn quiet full" disabled type="button">■ Остановить логику · вернуться к старому сценарию</button></div>
      <details class="wifi-setup">
