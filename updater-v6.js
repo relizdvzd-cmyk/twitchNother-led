@@ -136,7 +136,7 @@ $('flash').addEventListener('click',async()=>{
     log('✓ MD5 совпадает: '+md5);
     await loader.after('hard_reset');
     state('Готово: v6.0 записана и проверена!','ok');
-    log('✓ ESP32 перезапущена, проверь V5.5 PIXEL OK и команду VERSION.');
+    log('✓ ESP32 перезапущена, проверь V6 LOGIC и команду VERSION.');
   }catch(e){
     state('Запись не подтверждена. Если плата не запускается, открой Arduino IDE.','err');
     log('Ошибка записи: '+(e.message||e));
