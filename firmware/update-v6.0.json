@@ -1,6 +1,6 @@
 {
   "available": true,
-  "version": "5.5",
+  "version": "6.0",
   "protocol": "esp32-app-only-no-erase-v1",
   "board": "ESP32",
   "flash_size": "4MB",
@@ -12,7 +12,7 @@
   "md5": "db39d5f424d9384b6af735d5399e6ae8",
   "partition_table_bytes": 3072,
   "partition_table_md5": "a039c66cd3488176037b616b7595fe72",
-  "notes": "Nested IF/ELSE, REPEAT, WAIT, WiFi/Twitch/time conditions, dynamic text and 8x32 pixels; V6 LOGIC",
+  "notes": "Logic v6: IF/ELSE, REPEAT, WAIT, Twitch/clock conditions, text templates and pixel animation; V6 LOGIC. Classic ESP32 4MB only. Unverified on physical hardware.",
   "hardware_tested": false,
   "backup_parts": [
     {
