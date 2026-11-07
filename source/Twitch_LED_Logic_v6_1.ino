@@ -857,6 +857,133 @@ bool scriptNumber(const String& s,uint32_t minV,uint32_t maxV){
 bool scriptSpeedPause(const String& s,uint8_t pos){
   return scriptNumber(scriptToken(s,pos),35,140)&&scriptNumber(scriptToken(s,pos+1),0,2500);
 }
+
+// Typed reporter operands for IF comparisons. No arbitrary expressions or eval.
+// Numeric and boolean values never silently coerce to text.
+bool scriptSignedNumber(const String& s){
+  if(s.length()==0||s.length()>10)return false;
+  int start=(s[0]=='-')?1:0;
+  if(start==(int)s.length())return false;
+  for(int i=start;i<(int)s.length();i++)if(s[i]<'0'||s[i]>'9')return false;
+  int64_t n=strtoll(s.c_str(),nullptr,10);
+  return n>=-100000 && n<=100000000;
+}
+uint8_t scriptOperandType(const String& token){
+  if(token=="WIFI")return 3;
+  int sep=token.indexOf('@');
+  if(sep<1)return 0;
+  String kind=token.substring(0,sep),value=token.substring(sep+1);
+  if(kind=="TXT"){
+    String decoded;
+    if(!b64Decode(value,decoded)||decoded.length()==0||decoded.length()>48)return 0;
+    return 1;
+  }
+  if(kind=="NUM")return scriptSignedNumber(value)?2:0;
+  if(kind=="BOOL")return (value=="0"||value=="1")?3:0;
+  if(kind=="DAY"||kind=="TIME"||kind=="DATE")return dateZonePOSIX(value)?1:0;
+  if(kind=="HOUR")return dateZonePOSIX(value)?2:0;
+  if(kind=="NICK"||kind=="FOLLOW")
+    return value.length()&&normalizeStreamer(value)==value?(kind=="NICK"?1:2):0;
+  return 0;
+}
+bool scriptCompareValid(const String& op,const String& a,const String& b){
+  uint8_t ta=scriptOperandType(a),tb=scriptOperandType(b);
+  if(!ta||ta!=tb)return false;
+  if(op=="EQ"||op=="NE")return true;
+  if(op=="CONTAINS")return ta==1;
+  return ta==2&&(op=="GT"||op=="GTE"||op=="LT"||op=="LTE");
+}
+bool scriptOperandData(const String& token,String& out,uint8_t& type){
+  type=scriptOperandType(token);
+  if(!type)return false;
+  if(token=="WIFI"){out=WiFi.status()==WL_CONNECTED?"1":"0";return true;}
+  int sep=token.indexOf('@');
+  String kind=token.substring(0,sep),value=token.substring(sep+1);
+  if(kind=="TXT")return b64Decode(value,out);
+  if(kind=="NUM"||kind=="BOOL"){out=value;return true;}
+  if(kind=="DAY"||kind=="TIME"||kind=="DATE"||kind=="HOUR"){
+    if(time(nullptr)<1704067200)return false;
+    if(kind=="HOUR"){
+      const char* tz=dateZonePOSIX(value);
+      if(!tz)return false;
+      setenv("TZ",tz,1);tzset();
+      time_t now=time(nullptr);struct tm local;
+      if(!localtime_r(&now,&local))return false;
+      out=String(local.tm_hour);return true;
+    }
+    out=formattedClock(value,kind=="DAY"?2:kind=="TIME"?1:0);
+    return true;
+  }
+  if(kind=="NICK"){out=value;out.toUpperCase();return true;}
+  if(kind=="FOLLOW"){
+    uint32_t count=0;
+    if(!scriptCachedCount(value,count))return false;
+    out=String(count);return true;
+  }
+  return false;
+}
+// Uppercase ASCII and Russian Cyrillic (including ё) in UTF-8 before compare.
+String scriptFoldText(const String& text){
+  String out;out.reserve(text.length()+2);
+  for(size_t i=0;i<text.length();i++){
+    uint8_t a=(uint8_t)text[i];
+    if(a>='a'&&a<='z'){out+=(char)(a-32);continue;}
+    if(a==0xD0 && i+1<text.length()){
+      uint8_t b=(uint8_t)text[i+1];
+      if(b>=0xB0&&b<=0xBF){
+        out+=(char)0xD0;out+=(char)(b-0x20);i++;continue;
+      }
+    }
+    if(a==0xD1 && i+1<text.length()){
+      uint8_t b=(uint8_t)text[i+1];
+      if(b>=0x80&&b<=0x8F){
+        out+=(char)0xD0;out+=(char)(b+0x20);i++;continue;
+      }
+      if(b==0x91){
+        out+=(char)0xD0;out+=(char)0x81;i++;continue;
+      }
+    }
+    out+=(char)a;
+  }
+  out.trim();return out;
+}
+bool scriptCompareValues(const String& op,const String& a,const String& b){
+  if(!scriptCompareValid(op,a,b))return false;
+  String first,second;uint8_t t1=0,t2=0;
+  // Missing NTP or missing follower data never yields a true comparison.
+  if(!scriptOperandData(a,first,t1)||!scriptOperandData(b,second,t2)||t1!=t2)return false;
+  if(t1==2){
+    int64_t x=strtoll(first.c_str(),nullptr,10);
+    int64_t y=strtoll(second.c_str(),nullptr,10);
+    if(op=="EQ")return x==y;
+    if(op=="NE")return x!=y;
+    if(op=="GT")return x>y;
+    if(op=="GTE")return x>=y;
+    if(op=="LT")return x<y;
+    if(op=="LTE")return x<=y;
+    return false;
+  }
+  if(t1==1){
+    first=scriptFoldText(first);second=scriptFoldText(second);
+  }
+  if(op=="EQ")return first==second;
+  if(op=="NE")return first!=second;
+  if(op=="CONTAINS"&&t1==1)return first.indexOf(second)>=0;
+  return false;
+}
+bool scriptIfCompare(const String& line){
+  String kind=scriptToken(line,0);
+  if(kind=="IFCMP"){
+    return scriptCompareValues(scriptToken(line,1),scriptToken(line,2),scriptToken(line,3));
+  }
+  if(kind=="IFCMP2"){
+    const bool a=scriptCompareValues(scriptToken(line,2),scriptToken(line,3),scriptToken(line,4));
+    const bool b=scriptCompareValues(scriptToken(line,5),scriptToken(line,6),scriptToken(line,7));
+    return scriptToken(line,1)=="OR"?(a||b):(a&&b);
+  }
+  return false;
+}
+
 bool scriptValidLine(const String& s){
   if(s.length()<2||s.length()>450)return false;
   String kind=scriptToken(s,0);
@@ -881,6 +1008,16 @@ bool scriptValidLine(const String& s){
   if(kind=="WAIT")return scriptNumber(scriptToken(s,1),100,30000)&&scriptToken(s,2)=="";
   if(kind=="REPEAT")return scriptNumber(scriptToken(s,1),1,10)&&scriptToken(s,2)=="";
   if(kind=="ENDREPEAT"||kind=="ELSE"||kind=="ENDIF")return scriptToken(s,1)=="";
+  if(kind=="IFCMP")
+    return scriptCompareValid(scriptToken(s,1),scriptToken(s,2),scriptToken(s,3))&&
+      scriptToken(s,4)=="";
+  if(kind=="IFCMP2"){
+    String combine=scriptToken(s,1);
+    return (combine=="AND"||combine=="OR")&&
+      scriptCompareValid(scriptToken(s,2),scriptToken(s,3),scriptToken(s,4))&&
+      scriptCompareValid(scriptToken(s,5),scriptToken(s,6),scriptToken(s,7))&&
+      scriptToken(s,8)=="";
+  }
   if(kind=="IF"){
     const String t=scriptToken(s,1);
     if(t=="WIFI")return scriptToken(s,2)=="";
@@ -900,9 +1037,9 @@ bool scriptValidStructure(uint8_t count,bool staged){
     const String& line=staged?scriptStaging[i]:scriptLines[i];
     if(!scriptValidLine(line))return false;
     String kind=scriptToken(line,0);
-    if(kind=="IF"||kind=="REPEAT"){
+    if(kind=="IF"||kind=="IFCMP"||kind=="IFCMP2"||kind=="REPEAT"){
       if(depth>=3)return false;
-      stack[depth]=(kind=="IF")?1:2;
+      stack[depth]=(kind=="REPEAT")?2:1;
       seenElse[depth]=false;
       depth++;
     }else if(kind=="ELSE"){
@@ -1089,7 +1226,7 @@ uint8_t scriptSkipIf(uint8_t start,bool skipToElse){
   int depth=0;
   for(uint8_t i=start+1;i<scriptCount;i++){
     String kind=scriptToken(scriptLines[i],0);
-    if(kind=="IF")depth++;
+    if(kind=="IF"||kind=="IFCMP"||kind=="IFCMP2")depth++;
     else if(kind=="ENDIF"){
       if(depth==0)return i+1;
       depth--;
@@ -1168,8 +1305,9 @@ void scriptTick(){
       scriptPixelStart=scriptPixelFrameAt=millis();scriptPixelIndex=0;
       matrix.displaySuspend(true);drawScriptFrame(0);scriptMode=3;return;
     }
-    if(kind=="IF"){
-      if(!scriptIfTrue(line))scriptPC=scriptSkipIf(scriptPC-1,true);
+    if(kind=="IF"||kind=="IFCMP"||kind=="IFCMP2"){
+      bool result=(kind=="IF")?scriptIfTrue(line):scriptIfCompare(line);
+      if(!result)scriptPC=scriptSkipIf(scriptPC-1,true);
       continue;
     }
     if(kind=="ELSE"){scriptPC=scriptSkipIf(scriptPC-1,false);continue;}
