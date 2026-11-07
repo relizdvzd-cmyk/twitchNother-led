@@ -551,6 +551,118 @@
     }catch(err){banner('Ошибка импорта: '+err.message);}finally{e.target.value='';}
   });
 
+  // --- Pixel / animation editor: 32 columns x 8 rows, up to 4 frames ---
+  function pixelFrames(){return blocks[selected].value.split('.');}
+  function storePixelFrames(frames) {
+    if(blocks[selected]?.type!=='pixel')return;
+    blocks[selected].value=frames.join('.');
+    markDirty();renderList();restartPreview();
+  }
+  function renderPixelEditor(){
+    const block=blocks[selected];
+    if(block?.type!=='pixel')return;
+    const frames=pixelFrames();
+    pixelEditFrame=Math.min(pixelEditFrame,frames.length-1);
+    const cols=decodeFrame(frames[pixelEditFrame]);
+    $('pixelFrameLabel').textContent='Кадр '+(pixelEditFrame+1)+' из '+frames.length;
+    $('pixelPrev').disabled=pixelEditFrame===0;
+    $('pixelNext').disabled=pixelEditFrame>=frames.length-1;
+    $('pixelAdd').disabled=frames.length>=PIXEL_FRAMES_MAX;
+    $('pixelDelete').disabled=frames.length===1;
+    $('pixelFrameMs').value=block.speed;
+    $('pixelFrameMsLabel').textContent=block.speed+' мс';
+    $('pixelDurationMs').value=String(block.pauseMs);
+    const grid=$('pixelGrid');grid.replaceChildren();
+    for(let y=0;y<8;y++){
+      for(let x=0;x<32;x++){
+        const point=document.createElement('button');
+        point.type='button';point.className='pixel-dot';
+        point.dataset.pixel=String(x*8+y);
+        point.setAttribute('aria-label','Строка '+(y+1)+', столбец '+(x+1));
+        point.classList.toggle('lit',Boolean(cols[x]&(1<<y)));
+        grid.append(point);
+      }
+    }
+  }
+  function paintPixel(el,makeLit){
+    if(blocks[selected]?.type!=='pixel')return;
+    const id=Number(el?.dataset?.pixel);
+    if(!Number.isInteger(id)||id<0||id>=256)return;
+    const x=Math.floor(id/8),y=id%8,mask=(1<<y);
+    const frames=pixelFrames();
+    const cols=decodeFrame(frames[pixelEditFrame]);
+    cols[x]=makeLit?(cols[x]|mask):(cols[x]&~mask);
+    frames[pixelEditFrame]=encodeFrame(cols);
+    el.classList.toggle('lit',makeLit);
+    storePixelFrames(frames);
+  }
+  $('pixelGrid').addEventListener('pointerdown',e=>{
+    const cell=e.target.closest('button[data-pixel]');
+    if(!cell)return;
+    e.preventDefault();
+    pixelPainting=true;pixelPaintTo=!cell.classList.contains('lit');
+    paintPixel(cell,pixelPaintTo);
+  });
+  $('pixelGrid').addEventListener('pointerover',e=>{
+    if(!pixelPainting)return;
+    const cell=e.target.closest('button[data-pixel]');
+    if(cell)paintPixel(cell,pixelPaintTo);
+  });
+  $('pixelGrid').addEventListener('pointermove',e=>{
+    if(!pixelPainting||typeof document.elementFromPoint!=='function')return;
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const cell=el?.closest?.('button[data-pixel]');
+    if(cell)paintPixel(cell,pixelPaintTo);
+  });
+  document.addEventListener('pointerup',()=>{pixelPainting=false;});
+  document.addEventListener('pointercancel',()=>{pixelPainting=false;});
+  $('pixelGrid').addEventListener('click',e=>{
+    // Keyboard-only activation: pointer input handled by pointerdown.
+    if(e.detail!==0)return;
+    const cell=e.target.closest('button[data-pixel]');
+    if(cell)paintPixel(cell,!cell.classList.contains('lit'));
+  });
+  $('pixelPrev').addEventListener('click',()=>{
+    if(pixelEditFrame>0){pixelEditFrame--;renderPixelEditor();}
+  });
+  $('pixelNext').addEventListener('click',()=>{
+    if(pixelEditFrame+1<pixelFrames().length){pixelEditFrame++;renderPixelEditor();}
+  });
+  $('pixelAdd').addEventListener('click',()=>{
+    const frames=pixelFrames();
+    if(frames.length>=PIXEL_FRAMES_MAX)return;
+    frames.splice(pixelEditFrame+1,0,frames[pixelEditFrame]);
+    pixelEditFrame++;storePixelFrames(frames);renderPixelEditor();
+  });
+  $('pixelDelete').addEventListener('click',()=>{
+    const frames=pixelFrames();
+    if(frames.length<=1)return;
+    frames.splice(pixelEditFrame,1);
+    pixelEditFrame=Math.min(pixelEditFrame,frames.length-1);
+    storePixelFrames(frames);renderPixelEditor();
+  });
+  $('pixelClear').addEventListener('click',()=>{
+    const frames=pixelFrames();frames[pixelEditFrame]=blankFrame();
+    storePixelFrames(frames);renderPixelEditor();
+  });
+  $('pixelInvert').addEventListener('click',()=>{
+    const frames=pixelFrames();
+    frames[pixelEditFrame]=encodeFrame(decodeFrame(frames[pixelEditFrame]).map(v=>v^255));
+    storePixelFrames(frames);renderPixelEditor();
+  });
+  $('pixelFrameMs').addEventListener('input',e=>{
+    if(blocks[selected].type!=='pixel')return;
+    const v=clamp(e.target.value,100,900,250);
+    blocks[selected].speed=v;
+    $('pixelFrameMsLabel').textContent=v+' мс';
+    markDirty();restartPreview();
+  });
+  $('pixelDurationMs').addEventListener('change',e=>{
+    if(blocks[selected].type!=='pixel')return;
+    blocks[selected].pauseMs=clamp(e.target.value,500,9000,3000);
+    markDirty();restartPreview();
+  });
+
   // --- Approximate 5x7 matrix scrolling simulator ---
   // EXACT same original 5x7 Russian/Latin pixels as the ESP32 v5.2 firmware.
   const font={
