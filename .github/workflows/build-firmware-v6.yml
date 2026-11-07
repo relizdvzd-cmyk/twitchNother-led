@@ -116,7 +116,7 @@ jobs:
             git rebase --abort
             current_source=$(sha256sum source/Twitch_LED_Logic_v6.ino | cut -d' ' -f1)
             head_source=$(git show origin/main:source/Twitch_LED_Logic_v6.ino | sha256sum | cut -d' ' -f1)
-            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v6.0.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.5'"; then
+            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v6.0.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='6.0'"; then
               echo "Another run published a validated v6.0 package for the same source; skipping duplicate binary."
               exit 0
             fi
