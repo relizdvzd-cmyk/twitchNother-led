@@ -19,12 +19,12 @@ for(const token of [
   "'weekday','nick','count','pixel'",'decodeFrame(', 'previewPixelStartedAt',
   'previewGroupEnd+1','firmwareVersion<5.5','validConnectorPositions'
 ]) assert.ok(app.includes(token),'Browser missing '+token);
-for(const token of ['id="addTime"','id="addWeekday"','id="twitchDisplayMode"',
+for(const token of ['id="addTime"','id="addWeekday"','id="addNick"','id="addCount"','id="twitchDisplayMode"',
   'id="addPixel"','id="pixelGrid"',
   'id="pixelAdd"','id="pixelDelete"','id="pixelFrameMs"','id="pixelDurationMs"'])
   assert.ok(html.includes(token),'HTML missing '+token);
-assert.ok(!html.includes('id="addNick"')&&!html.includes('id="addCount"'),
-  'Twitch should be ONE block with a format selector');
+assert.ok(html.includes('value="nick"')&&html.includes('value="count"'),
+  'Twitch format selector must have nick-only and count-only options');
 assert.ok(css.includes('.pixel-grid'), 'Pixel grid CSS missing');
 assert.ok(guard.includes("twitch-led-v5.5.bin"),'Safe updater must use v5.5 binary');
 
@@ -63,7 +63,7 @@ vm.runInNewContext(app,ctx,{timeout:3000});
 assert.equal(get('addJoin').disabled,false,'JOIN button available between two contents');
 get('addJoin').events.click[0]();
 assert.deepEqual(JSON.parse(saved).blocks.map(x=>x.type),['text','join','twitch']);
-// The user requested one Twitch block with full or count-only formatting.
+// The user can select full/nick/count display or add them as separate playlist blocks.
 const selectTwitch=fakeElement();
 selectTwitch.dataset.action='select';selectTwitch.dataset.index='2';
 get('blocksList').events.click[0]({target:selectTwitch});
@@ -71,6 +71,12 @@ assert.equal(get('twitchDisplayMode').value,'twitch');
 get('twitchDisplayMode').events.change[0]({target:{value:'count'}});
 assert.deepEqual(JSON.parse(saved).blocks.map(x=>x.type),['text','join','count']);
 assert.equal(get('twitchDisplayMode').value,'count');
+assert.equal(get('addNick').disabled,false);
+assert.equal(get('addCount').disabled,false);
+get('twitchDisplayMode').events.change[0]({target:{value:'nick'}});
+assert.equal(JSON.parse(saved).blocks[2].type,'nick');
+get('twitchDisplayMode').events.change[0]({target:{value:'count'}});
+assert.equal(JSON.parse(saved).blocks[2].type,'count');
 assert.equal(get('addPixel').disabled,false);
 get('addPixel').events.click[0]();
 let current=JSON.parse(saved).blocks;
