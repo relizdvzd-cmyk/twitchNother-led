@@ -69,6 +69,8 @@
           <div class="row" style="justify-content:space-between"><div><h3>Конструктор вывода</h3><p class="help">Элементы показываются по очереди слева направо. Нажми на элемент, чтобы изменить его настройки.</p></div><span class="pill">до 12 элементов</span></div>
           <div class="builder-toolbar row">
             <button class="btn primary" id="addTwitch" type="button">＋ Счётчик Twitch</button>
+            <button class="btn" id="addNick" type="button">＋ Ник Twitch</button>
+            <button class="btn" id="addCount" type="button">＋ Число фолловеров</button>
             <button class="btn" id="addText" type="button">＋ Свой текст</button>
             <button class="btn" id="addDate" type="button">＋ Сегодняшняя дата</button>
             <button class="btn" id="addJoin" type="button">＋ Соединение ↔</button>
@@ -92,6 +94,7 @@
                 <select class="input" id="twitchDisplayMode">
                   <option value="twitch">Ник + количество фолловеров</option>
                   <option value="count">Только количество фолловеров</option>
+                  <option value="nick">Только ник Twitch</option>
                 </select>
                 <p class="help" id="twitchBlockHelp">По умолчанию PWGOOD: 475070. Для статичной подписи добавь обычный текст.</p>
               </div>
