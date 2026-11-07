@@ -1,7 +1,7 @@
 {
   "schema": 3,
   "app": "Twitch LED Builder",
-  "description": "v5.5: text JOIN nick, text JOIN count, clock, weekday, 3-frame heart animation.",
+  "description": "v5.5: static text JOIN count-only Twitch block, timezone clock, weekday, 3-frame heart animation.",
   "blocks": [
     {
       "type": "text",
@@ -16,8 +16,8 @@
       "pauseMs": 0
     },
     {
-      "type": "nick",
-      "value": "pwgood",
+      "type": "text",
+      "value": "PWGOOD",
       "speed": 65,
       "pauseMs": 300
     },
