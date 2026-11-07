@@ -352,7 +352,7 @@ void drawPixelFrame(uint8_t blockIndex,uint8_t frameIndex) {
   for(uint8_t col=0;col<32;col++) {
     const uint16_t p=start+(uint16_t)col*2;
     const uint8_t bits=(pixelHex(data[p])<<4)|pixelHex(data[p+1]);
-    gfx->setColumn(col,bits);
+    gfx->setColumn(31-col,bits); // MD_MAX72XX col 0 is rightmost; editor x=0 is leftmost
   }
   gfx->update();
   gfx->update(MD_MAX72XX::ON);
