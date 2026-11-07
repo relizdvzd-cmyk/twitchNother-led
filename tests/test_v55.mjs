@@ -12,17 +12,19 @@ for(const token of [
   'bool validPixels(','frameCount(','drawPixelFrame(','matrix.getGraphicObject()',
   'blocks[cursor+1].type==JOIN_BLOCK','validLayout(stagingCount,true)',
   'VERSION TWITCHLED 5.5','V5.5 PIXEL OK','ESP32-Twitch-LED-Builder/5.5',
-  'gfx->setColumn(col,bits)','PIXEL_BLOCK||', // pixel exclusion from joins
+  'gfx->setColumn(31-col,bits)','PIXEL_BLOCK||', // pixel exclusion from joins
 ]) assert.ok(firmware.includes(token),'Firmware missing '+token);
 for(const token of [
   "type==='pixel'",'function paintPixel(','function renderPixelEditor()',
   "'weekday','nick','count','pixel'",'decodeFrame(', 'previewPixelStartedAt',
   'previewGroupEnd+1','firmwareVersion<5.5','validConnectorPositions'
 ]) assert.ok(app.includes(token),'Browser missing '+token);
-for(const token of ['id="addTime"','id="addWeekday"','id="addNick"',
-  'id="addCount"','id="addPixel"','id="pixelGrid"',
+for(const token of ['id="addTime"','id="addWeekday"','id="twitchDisplayMode"',
+  'id="addPixel"','id="pixelGrid"',
   'id="pixelAdd"','id="pixelDelete"','id="pixelFrameMs"','id="pixelDurationMs"'])
   assert.ok(html.includes(token),'HTML missing '+token);
+assert.ok(!html.includes('id="addNick"')&&!html.includes('id="addCount"'),
+  'Twitch should be ONE block with a format selector');
 assert.ok(css.includes('.pixel-grid'), 'Pixel grid CSS missing');
 assert.ok(guard.includes("twitch-led-v5.5.bin"),'Safe updater must use v5.5 binary');
 
@@ -36,7 +38,11 @@ function fakeElement(){
       contains:k=>classes.has(k)},
     setAttribute(){},addEventListener(type,cb){(events[type]??=[]).push(cb);},
     replaceChildren(){children.length=0;},append(...items){children.push(...items);},
-    closest(sel){return sel==='button[data-pixel]'&&this.dataset.pixel!==undefined?this:null;},
+    closest(sel){
+      if(sel==='button[data-pixel]'&&this.dataset.pixel!==undefined)return this;
+      if(sel==='button[data-action]'&&this.dataset.action!==undefined)return this;
+      return null;
+    },
     focus(){},scrollIntoView(){},click(){}};
   return x;
 }
@@ -57,6 +63,14 @@ vm.runInNewContext(app,ctx,{timeout:3000});
 assert.equal(get('addJoin').disabled,false,'JOIN button available between two contents');
 get('addJoin').events.click[0]();
 assert.deepEqual(JSON.parse(saved).blocks.map(x=>x.type),['text','join','twitch']);
+// The user requested one Twitch block with full or count-only formatting.
+const selectTwitch=fakeElement();
+selectTwitch.dataset.action='select';selectTwitch.dataset.index='2';
+get('blocksList').events.click[0]({target:selectTwitch});
+assert.equal(get('twitchDisplayMode').value,'twitch');
+get('twitchDisplayMode').events.change[0]({target:{value:'count'}});
+assert.deepEqual(JSON.parse(saved).blocks.map(x=>x.type),['text','join','count']);
+assert.equal(get('twitchDisplayMode').value,'count');
 assert.equal(get('addPixel').disabled,false);
 get('addPixel').events.click[0]();
 let current=JSON.parse(saved).blocks;
@@ -71,4 +85,4 @@ get('pixelGrid').events.pointerdown[0]({target:firstDot,preventDefault(){}});
 current=JSON.parse(saved).blocks;
 assert.equal(current.at(-1).value.split('.')[1].slice(0,2),'01','pixel toggled in second frame');
 assert.equal(get('savePlaylist').disabled,true,'Never send new blocks to an unknown / old board');
-console.log('PASS: v5.5 firmware markers, guarded updater, real builder interactions, 256-pixel editing and frames');
+console.log('PASS: v5.5 firmware, single Twitch mode selector, guarded updater, 256-pixel drawing and frames');
