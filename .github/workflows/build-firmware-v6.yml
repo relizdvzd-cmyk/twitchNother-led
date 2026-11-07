@@ -16,7 +16,7 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: twitch-led-v55-firmware
+  group: twitch-led-v6-firmware
   cancel-in-progress: false
 jobs:
   build:
@@ -83,7 +83,7 @@ jobs:
           }
           for kind,filename in names.items(): shutil.copyfile(paths[kind],target/filename)
           release={
-            'available':True,'version':'5.5',
+            'available':True,'version':'6.0',
             'protocol':'esp32-app-only-no-erase-v1',
             'board':'ESP32','flash_size':'4MB','partition_scheme':'default',
             'app_offset':65536,'file':names['app'],'size':len(app),
