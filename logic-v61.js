@@ -296,6 +296,90 @@ function renderNode(n){
   }
   return out+"</article>";
 }
+function compileOperand(expr,errors){
+  const kind=expr?.kind;
+  if(!REPORTER_KINDS.includes(kind)){errors.push("Неизвестный блок значения");return "TXT@0";}
+  if(["weekday","date","time","hour"].includes(kind))
+    return ({weekday:"DAY",date:"DATE",time:"TIME",hour:"HOUR"}[kind])+"@"+safeZone(expr.zone);
+  if(["followers","nick"].includes(kind)){
+    const login=normLogin(expr.login);
+    if(!login)errors.push("Некорректный ник Twitch внутри сравнения");
+    return (kind==="followers"?"FOLLOW":"NICK")+"@"+(login||"pwgood");
+  }
+  if(kind==="wifi")return "WIFI";
+  if(kind==="number"){
+    const raw=String(expr.value??"");
+    if(!/^-?\d{1,9}$/.test(raw)||Number(raw)<-100000||Number(raw)>100000000)
+      errors.push("Число в сравнении должно быть целым от −100000 до 100000000");
+    return "NUM@"+int(raw,-100000,100000000,0);
+  }
+  if(kind==="bool")return "BOOL@"+(expr.value===false||expr.value==="false"?"0":"1");
+  const value=String(expr.value??"");
+  if(!value||bytes(value)>48||/[\r\n\x00-\x1f]/.test(value))
+    errors.push("Литерал сравнения должен содержать 1–48 байт текста без переносов");
+  return "TXT@"+b64(value||" ");
+}
+function testValidOperator(test,errors){
+  const a=exprType(test?.left),b=exprType(test?.right);
+  if(!a||a!==b){errors.push("Нельзя сравнить разные типы данных: "+(a||"?")+" и "+(b||"?"));return;}
+  if(["GT","GTE","LT","LTE"].includes(test.op)&&a!=="number")
+    errors.push("Операторы >, ≥, <, ≤ работают только с числами");
+  if(test.op==="CONTAINS"&&a!=="text")
+    errors.push("«Содержит» работает только с текстом");
+  if(!COMPARE_OPS.some(([v])=>v===test.op))errors.push("Неизвестный оператор сравнения");
+}
+function compileComparisonNode(node,errors){
+  const tests=node.tests||[];
+  if(!tests.length||tests.length>2){errors.push("В условии допускается 1 или 2 сравнения");return "IF WIFI";}
+  const pieces=tests.map(t=>{
+    testValidOperator(t,errors);
+    return t.op+" "+compileOperand(t.left,errors)+" "+compileOperand(t.right,errors);
+  });
+  const command=tests.length===1?"IFCMP "+pieces[0]:
+    "IFCMP2 "+(node.combine==="OR"?"OR":"AND")+" "+pieces.join(" ");
+  if(command.length>440)errors.push("Условие длиннее предела прошивки (440 символов)");
+  return command;
+}
+function evaluateOperand(expr){
+  const kind=expr?.kind;
+  if(["weekday","date","time"].includes(kind))
+    return {type:"text",value:outputDate(expr.zone,kind.toUpperCase()),valid:true};
+  if(kind==="hour"){
+    try{
+      const value=Number(new Intl.DateTimeFormat("en-US",{timeZone:zones[safeZone(expr.zone)],hour:"numeric",hourCycle:"h23"}).format(new Date()));
+      return {type:"number",value,valid:Number.isInteger(value)};
+    }catch(_){return {type:"number",value:0,valid:false}}
+  }
+  if(kind==="followers")return {type:"number",value:475070,valid:true};
+  if(kind==="nick")return {type:"text",value:String(normLogin(expr.login)||"PWGOOD").toUpperCase(),valid:true};
+  if(kind==="wifi")return {type:"bool",value:true,valid:true};
+  if(kind==="number"){const n=Number(expr.value);return {type:"number",value:n,valid:Number.isInteger(n)}}
+  if(kind==="bool")return {type:"bool",value:!(expr.value===false||expr.value==="false"),valid:true};
+  if(kind==="text")return {type:"text",value:String(expr.value??""),valid:true};
+  return {type:null,value:null,valid:false};
+}
+function evaluateTest(test){
+  const l=evaluateOperand(test.left),r=evaluateOperand(test.right);
+  if(!l.valid||!r.valid||l.type!==r.type)return false;
+  const a=l.type==="text"?String(l.value).trim().toLocaleUpperCase("ru-RU"):l.value;
+  const b=r.type==="text"?String(r.value).trim().toLocaleUpperCase("ru-RU"):r.value;
+  switch(test.op){
+    case "EQ":return a===b;
+    case "NE":return a!==b;
+    case "GT":return l.type==="number"&&a>b;
+    case "GTE":return l.type==="number"&&a>=b;
+    case "LT":return l.type==="number"&&a<b;
+    case "LTE":return l.type==="number"&&a<=b;
+    case "CONTAINS":return l.type==="text"&&a.includes(b);
+    default:return false;
+  }
+}
+function evaluateIf(node){
+  if(Array.isArray(node.tests)&&node.tests.length)
+    return node.combine==="OR"?node.tests.some(evaluateTest):node.tests.every(evaluateTest);
+  return false;
+}
+
 function validateAndCompile(){
   const commands=[],errors=[];
   function bad(msg){errors.push(msg)}
@@ -321,11 +405,7 @@ function validateAndCompile(){
         case "repeat":
           commands.push("REPEAT "+int(n.times,1,10,3));visit(n.body||[],depth+1);commands.push("ENDREPEAT");break;
         case "if":
-          if(n.condition==="followers"){
-            if(!normLogin(n.login))bad("Неверный Twitch-логин в условии.");
-            commands.push("IF FOLLOWERS "+(normLogin(n.login)||"pwgood")+" "+int(n.threshold,0,100000000,100));
-          }else if(n.condition==="hour")commands.push("IF HOUR "+safeZone(n.zone)+" "+int(n.hour,0,23,18));
-          else commands.push("IF WIFI");
+          commands.push(compileComparisonNode(n,errors));
           visit(n.body||[],depth+1);commands.push("ELSE");
           visit(n.otherwise||[],depth+1);commands.push("ENDIF");break;
         default: bad("Неизвестный элемент "+n.kind);
@@ -550,15 +630,7 @@ function textColumns(text){
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function stopSimulation(){simulation++;$("simState").textContent="Симуляция остановлена";}
 function simIsActive(token){return token===simulation}
-function readCondition(n) {
-  if(n.condition==="wifi")return true; // virtual WiFi is connected
-  if(n.condition==="followers")return 475070>=int(n.threshold,0,100000000,0);
-  if(n.condition==="hour"){
-    const fmt=new Intl.DateTimeFormat("en-US",{timeZone:zones[safeZone(n.zone)],hour:"numeric",hourCycle:"h23"});
-    return Number(fmt.format(new Date()))>=int(n.hour,0,23,0);
-  }
-  return false;
-}
+function readCondition(n) {return evaluateIf(n);}
 async function showSimText(text,token){
   const columns=textColumns(text);
   $("previewLabel").textContent=text;
