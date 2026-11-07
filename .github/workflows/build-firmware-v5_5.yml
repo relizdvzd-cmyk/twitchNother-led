@@ -81,7 +81,7 @@ jobs:
           }
           for kind,filename in names.items(): shutil.copyfile(paths[kind],target/filename)
           release={
-            'available':True,'version':'5.4',
+            'available':True,'version':'5.5',
             'protocol':'esp32-app-only-no-erase-v1',
             'board':'ESP32','flash_size':'4MB','partition_scheme':'default',
             'app_offset':65536,'file':names['app'],'size':len(app),
@@ -89,7 +89,7 @@ jobs:
             'md5':hashlib.md5(app).hexdigest(),
             'partition_table_bytes':len(table),
             'partition_table_md5':hashlib.md5(table).hexdigest(),
-            'notes':'JOIN соединяет соседние блоки в одну строку; кириллица, дата; V5.4 JOIN OK',
+            'notes':'Часы, день недели, ник Twitch, число фолловеров и пиксельные анимации 8x32; V5.5 PIXEL OK',
             'hardware_tested':False,
             'backup_parts':[
               {'file':names['bootloader'],'offset':0x1000},
@@ -114,7 +114,7 @@ jobs:
             git rebase --abort
             current_source=$(sha256sum source/Twitch_LED_Builder_ESP32_v5_5.ino | cut -d' ' -f1)
             head_source=$(git show origin/main:source/Twitch_LED_Builder_ESP32_v5_5.ino | sha256sum | cut -d' ' -f1)
-            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v5.5.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.4'"; then
+            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v5.5.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='5.5'"; then
               echo "Another run published a validated v5.5 package for the same source; skipping duplicate binary."
               exit 0
             fi
