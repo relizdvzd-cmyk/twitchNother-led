@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10131d">
+<meta name="description" content="Twitch LED Logic — визуальное программирование матрицы MAX7219 в стиле Scratch">
+<title>Twitch LED Logic · Экспериментальный конструктор v6.1</title>
+<link rel="stylesheet" href="./logic-v61.css?v=6.1.0">
+<script src="./logic-v61.js?v=6.1.0" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="mark">8<span>×</span>32</div>
+    <div><div class="brandname">Twitch LED <b>Logic</b><span class="beta">v6.1 · BETA</span></div>
+    <div class="subtitle">Программируй своё табло блоками</div></div></div>
+  <div class="top-actions">
+    <a class="btn quiet" href="./index.html">↗ Классический v5.5</a>
+    <button id="reset" class="btn quiet" type="button">Новый проект</button>
+    <button id="importBtn" class="btn quiet" type="button">Импорт JSON</button>
+    <input id="importFile" type="file" accept=".json,application/json" hidden>
+    <button id="exportBtn" class="btn" type="button">↓ Скачать проект</button>
+  </div>
+</header>
+<div class="shell">
+ <aside class="palette panel">
+   <div class="overline">01 / БИБЛИОТЕКА</div><h2>Блоки</h2>
+   <p class="hint">Перетаскивай команды из палитры между блоками, внутрь «если / иначе» и циклов. Бирюзовые блоки-значения перетаскивай прямо в ячейки сравнения. Можно и нажимать на блоки.</p>
+   <div class="category"><span class="catdot c-screen"></span> Вывод на экран</div>
+   <button class="palette-block screen" data-add="text" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">Aa</span> показать текст</button>
+   <button class="palette-block screen" data-add="twitch" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◉</span> счётчик Twitch</button>
+   <button class="palette-block screen" data-add="clock" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◷</span> время / дата / день</button>
+   <button class="palette-block screen" data-add="pixel" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">▦</span> пиксельная картинка</button>
+   <div class="category"><span class="catdot c-control"></span> Управление</div>
+   <button class="palette-block control" data-add="wait" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">⏱</span> ждать</button>
+   <button class="palette-block control" data-add="repeat" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">↻</span> повторить N раз</button>
+   <button class="palette-block control" data-add="if" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◇</span> если / иначе</button>
+   <div class="category"><span class="catdot c-sensor"></span> Данные для сравнения</div>
+   <p class="hint" style="margin-bottom:8px">Перетащи значение в левую или правую ячейку блока «если»:</p>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="weekday">◈ День недели</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="date">◈ Дата</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="time">◈ Время</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="hour">◈ Час (число 0–23)</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="followers">◈ Число фолловеров</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="nick">◈ Ник Twitch</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="wifi">◈ Wi-Fi подключён?</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="text">◈ Текст «СУББОТА»</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="number">◈ Число 100</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="bool">◈ Истина / ложь</button>
+   <div class="condition-list">Сравнения: =, ≠, &gt;, &lt;, ≥, ≤, «содержит». Два сравнения можно объединить через И / ИЛИ.</div>
+   <div class="palette-help">
+     <strong>Как собирать?</strong>
+     <p>Перетащи <b>«если / иначе»</b> в программу, в его ячейку слева — <b>«День недели»</b>, справа — <b>«Текст»</b> и напиши «СУББОТА». Выбери знак = и вставь внутрь «ТО» текст «ВЫХОДНЫЕ!!».</p>
+     <p>Кнопки «＋ вставить сюда» и выбор значения в самой ячейке остаются для работы без перетаскивания.</p>
+     <p>Вся программа выполняется циклически. Условия проверяются на ESP32 во время работы.</p>
+   </div>
+ </aside>
+ <main class="workspace">
+   <div class="workspace-head"><div>
+     <div class="overline">02 / ПРОГРАММА</div>
+     <h1>Мой сценарий</h1>
+     <p>Сравнивай любые совместимые значения, комбинируй условия через И / ИЛИ, перетаскивай блоки в нужные места.</p>
+   </div><div class="counter"><b id="nodeCount">0</b><span>команд</span></div></div>
+   <div class="program" id="program">
+     <div class="hat">⚡ Когда устройство включено <small>↻ повторять всю программу</small></div>
+     <div id="rootList" class="root-list"></div>
+     <div class="endcap">↻ Начать программу сначала</div>
+   </div>
+   <div id="validation" class="validation" role="status"></div>
+ </main>
+ <aside class="right-rail">
+   <section class="panel live-preview">
+     <div class="overline">03 / ПРЕДПРОСМОТР</div><h2>Матрица 8×32</h2>
+     <div class="matrix-wrap"><div id="ledMatrix" class="matrix" aria-label="Матрица 8 на 32"></div></div>
+     <div id="previewLabel" class="preview-label">Пример показа появится здесь</div>
+     <div class="row"><button id="playDemo" class="btn primary">▶ Симуляция</button><button id="stopDemo" class="btn quiet">■ Стоп</button></div>
+     <p class="hint">В браузере Twitch и Wi-Fi моделируются. Сравнения выполняются по тем же правилам, что в прошивке. В симуляции число фолловеров условное.</p>
+     <div id="simState" class="sim-state">Симуляция остановлена</div>
+   </section>
+   <section class="panel connect-panel">
+     <div class="overline">04 / УСТРОЙСТВО</div><h2>USB → ESP32</h2>
+     <div id="deviceStatus" class="status">● Не подключено</div>
+     <div class="row"><button id="usbConnect" class="btn">Подключить</button><button id="usbDisconnect" class="btn quiet" disabled>Отключить</button></div>
+     <button id="sendScript" class="btn primary full" disabled>Записать программу на ESP32</button>
+     <div class="row"><button id="stopScript" class="btn quiet full" disabled type="button">■ Остановить логику · вернуться к старому сценарию</button></div>
+     <details class="wifi-setup">
+       <summary>Настроить Wi-Fi на устройстве</summary>
+       <label for="wifiSsid">Имя сети Wi-Fi 2,4 ГГц</label>
+       <input id="wifiSsid" type="text" autocomplete="off" placeholder="Название сети" maxlength="32">
+       <label for="wifiPassword">Пароль</label>
+       <input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Пароль" maxlength="64">
+       <button id="wifiSave" class="btn full" disabled type="button">Сохранить Wi-Fi по USB</button>
+       <p class="hint">Пароль не сохраняется на сайте: он передаётся только ESP32 через выбранный USB-порт.</p>
+     </details>
+     <p class="hint">Отправка программы разрешена только устройству с прошивкой, объявляющей поддержку <code>SCRIPT2</code>. Старые v5.3–v5.5 защищены от несовместимой записи.</p>
+     <a class="btn quiet full" style="display:block;text-align:center;margin:12px 0;white-space:normal" href="./updater-v61.html">↗ Установщик Logic v6.1 (для ESP32 classic)</a>
+     <p class="hint">Бета: только классическая ESP32 Dev Module, Flash 4 МБ. Не для LILYGO T-Energy S3. Перед установкой сохрани копию сценария.</p>
+     <details><summary>Протокол и диагностика</summary><pre id="usbLog">Нет соединения</pre></details>
+   </section>
+   <section class="panel pixel-tools" id="pixelTools" hidden>
+     <div class="overline">РЕДАКТОР ГРАФИКИ</div><h2>Пиксели 8×32</h2>
+     <p class="hint">Рисуй прямо в ячейках. Изображение хранится в выбранном блоке.</p>
+     <div id="pixelGrid" class="pixel-grid" aria-label="Редактор пикселей 8 на 32"></div>
+     <div class="row">
+       <button id="pixelPrev" class="btn quiet" type="button">◀</button>
+       <span id="pixelFrameInfo">Кадр 1/1</span>
+       <button id="pixelNext" class="btn quiet" type="button">▶</button>
+       <button id="pixelAddFrame" class="btn quiet" type="button">＋ кадр</button>
+       <button id="pixelRemoveFrame" class="btn quiet" type="button">− кадр</button>
+     </div>
+     <div class="row"><button id="pixelClear" class="btn quiet">Очистить</button><button id="pixelInvert" class="btn quiet">Инвертировать</button></div>
+   </section>
+ </aside>
+</div>
+<footer>Экспериментальный редактор v6.1 · Сценарии сохраняются локально в браузере. <a href="./index.html">Проверенный классический конструктор</a> остаётся доступным.</footer>
+</body></html>
