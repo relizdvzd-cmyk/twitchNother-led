@@ -252,6 +252,8 @@ function render(){
   $("validation").textContent=errors.length?"Исправить: "+errors.join(" "):
     "✓ Логика корректна. После компиляции: "+commands.length+" команд. Повтор всей программы — автоматически.";
   $("sendScript").disabled=!firmwareOK||busy||errors.length>0;
+  $("stopScript").disabled=!firmwareOK||busy;
+  $("wifiSave").disabled=!firmwareOK||busy;
   $("pixelTools").hidden=!selectedId||getNode(selectedId)?.node.kind!=="pixel";
   if(!$("pixelTools").hidden)renderPixelEditor();
 }
@@ -259,6 +261,8 @@ function updateLight(){const {errors}=validateAndCompile();
   $("validation").className="validation"+(errors.length?" error":"");
   $("validation").textContent=errors.length?errors.join(" "):"✓ Программа корректна · "+countNodes()+" блоков.";
   $("sendScript").disabled=!firmwareOK||busy||errors.length>0;
+  $("stopScript").disabled=!firmwareOK||busy;
+  $("wifiSave").disabled=!firmwareOK||busy;
 }
 function changeNode(id,key,value){
   const found=getNode(id);if(!found)return;
@@ -573,6 +577,30 @@ $("usbDisconnect").addEventListener("click",async()=>{
   port=null;rx="";pending=null;
   $("usbConnect").disabled=false;$("usbDisconnect").disabled=true;
   usbStatus("Не подключено");render();
+});
+$("stopScript").addEventListener("click",async()=>{
+  if(!firmwareOK||busy)return;
+  if(!confirm("Остановить программу Logic v6 и вернуться к предыдущему сценарию v5.5 на ESP32?"))return;
+  busy=true;render();
+  try{await cmd("SCRIPT STOP","OK SCRIPT STOP");usbStatus("Логика остановлена, старый сценарий возобновлён",true);}
+  catch(e){usbStatus("Не удалось остановить скрипт: "+e.message)}
+  finally{busy=false;render()}
+});
+$("wifiSave").addEventListener("click",async()=>{
+  if(!firmwareOK||busy)return;
+  const ssid=$("wifiSsid").value,password=$("wifiPassword").value;
+  if(!ssid||!password||bytes(ssid)>32||bytes(password)>64||
+      ssid.includes("|")||/[\r\n]/.test(ssid+password)){
+    usbStatus("Проверь SSID и пароль: не более 32/64 байт и без переносов");return;
+  }
+  busy=true;render();
+  try{
+    const result=await cmd("WIFI "+ssid+"|"+password,"OK WIFI SAVED");
+    $("wifiPassword").value="";
+    usbStatus("Wi-Fi сохранён на ESP32 ("+ssid+")",true);
+    usbLog("Wi-Fi: "+result);
+  }catch(e){usbStatus("Ошибка настройки Wi-Fi: "+e.message)}
+  finally{busy=false;render()}
 });
 $("sendScript").addEventListener("click",async()=>{
   if(!firmwareOK||busy)return;
