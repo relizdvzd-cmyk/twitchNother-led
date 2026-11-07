@@ -1,0 +1,55 @@
+name: Twitch LED Logic v6.2 - streamer live status + comparisons
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/ci-logic-v62.yml'
+      - 'logic-v62.html'
+      - 'logic-v62.css'
+      - 'logic-v62.js'
+      - 'source/Twitch_LED_Logic_v6_2.ino'
+      - 'tests/test_logic_v62.mjs'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci-logic-v62.yml'
+      - 'logic-v62.html'
+      - 'logic-v62.css'
+      - 'logic-v62.js'
+      - 'source/Twitch_LED_Logic_v6_2.ino'
+      - 'tests/test_logic_v62.mjs'
+permissions:
+  contents: read
+concurrency:
+  group: twitch-led-logic-v62-ci
+  cancel-in-progress: true
+jobs:
+  test-and-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run logic and streamer status tests
+        run: node tests/test_logic_v62.mjs
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install Arduino ESP32 core and libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile Logic v6.2 LIVE1 for classic ESP32
+        run: |
+          set -euo pipefail
+          mkdir -p temp/Twitch_LED_Logic_v6_2 out
+          cp source/Twitch_LED_Logic_v6_2.ino temp/Twitch_LED_Logic_v6_2/Twitch_LED_Logic_v6_2.ino
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out temp/Twitch_LED_Logic_v6_2
+          test -s out/Twitch_LED_Logic_v6_2.ino.bin
+      - name: Guard stable releases
+        run: |
+          test -f source/Twitch_LED_Builder_ESP32_v5_5.ino
+          test -f updater-v55.html
+          test -f updater-v6.html
+          grep -q 'SCRIPT2' source/Twitch_LED_Logic_v6_2.ino
+          grep -q 'LIVE1' source/Twitch_LED_Logic_v6_2.ino
