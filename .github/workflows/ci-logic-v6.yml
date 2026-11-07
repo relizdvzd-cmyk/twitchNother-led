@@ -1,0 +1,48 @@
+name: Twitch LED Logic v6 - isolated beta CI
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci-logic-v6.yml'
+      - 'logic-v6.html'
+      - 'logic-v6.css'
+      - 'logic-v6.js'
+      - 'source/Twitch_LED_Logic_v6.ino'
+      - 'tests/test_logic_v6.mjs'
+permissions:
+  contents: read
+concurrency:
+  group: twitch-led-logic-v6-beta
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test visual logic and backward compatibility safeguards
+        run: node tests/test_logic_v6.mjs
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install classic ESP32 core 3.3.12 and MAX7219 libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile beta firmware for classic ESP32 (no automatic flashing)
+        run: |
+          set -euo pipefail
+          mkdir -p temp/Twitch_LED_Logic_v6 out
+          cp source/Twitch_LED_Logic_v6.ino temp/Twitch_LED_Logic_v6/Twitch_LED_Logic_v6.ino
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out temp/Twitch_LED_Logic_v6
+          ls -lh out
+      - name: Confirm separate proven v5.5 updater is untouched
+        run: |
+          set -euo pipefail
+          test -f updater-v55.html
+          test -f updater-v55.js
+          test -f source/Twitch_LED_Builder_ESP32_v5_5.ino
+          ! grep -q 'eraseAll:true' updater-v55.js
+          grep -q 'SCRIPT1' source/Twitch_LED_Logic_v6.ino
