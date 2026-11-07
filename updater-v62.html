@@ -28,7 +28,7 @@ h1{font-size:24px;margin:0;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 12p
 <body>
 <main>
 <header class="top"><h1>◈ Twitch Followers LED</h1><a href="index.html">← Вернуться в конструктор</a></header>
-<section class="hero"><div class="eyebrow">USB FLASHER · 6.2 · ESP32</div><h2>v6.2 — Статус стримера ОНЛАЙН / ОФЛАЙН без Twitch-токенов без стирания настроек</h2><p>Вместо прежнего ESP Web Tools — отдельный мастер с проверкой платы, разметки и контрольной суммы. Он записывает <strong>только приложение по адресу 0x10000</strong>; загрузчик, NVS и Wi-Fi не трогает.</p></section>
+<section class="hero"><div class="eyebrow">USB FLASHER · 6.2 · ESP32</div><h2>v6.2 — Статус стримера ОНЛАЙН / ОФЛАЙН без Twitch-токенов</h2><p>Вместо прежнего ESP Web Tools — отдельный мастер с проверкой платы, разметки и контрольной суммы. Он записывает <strong>только приложение по адресу 0x10000</strong>; загрузчик, NVS и Wi-Fi не трогает.</p></section>
 <section class="card">
   <h2>1. Проверка пакета</h2>
   <div class="grid"><div class="box"><small>Новая версия</small><strong id="version">Проверяем...</strong></div><div class="box"><small>Плата</small><strong>ESP32 classic · Flash 4 МБ</strong></div><div class="box"><small>Область записи</small><strong>APP 0x10000</strong></div></div>
@@ -44,7 +44,7 @@ h1{font-size:24px;margin:0;letter-spacing:-.6px}h2{font-size:20px;margin:0 0 12p
 </section>
 <section class="card">
   <h2>3. Подтверждение и запись</h2>
-  <div class="callout"><strong>Перед установкой:</strong> сохрани копию сценария в JSON на главной странице. Не отключай USB во время записи. Если что-то пойдёт не так, восстановление по-прежнему возможно через Arduino IDE. Бета-прошивка v6.2 и этот установщик ещё не испытаны на физической плате. Перед обновлением экспортируй сценарий в JSON.</div>
+  <div class="callout"><strong>Перед установкой:</strong> сохрани копию сценария в JSON на главной странице. Не отключай USB во время записи. Если что-то пойдёт не так, восстановление по-прежнему возможно через Arduino IDE. Версия v6.2 обозначена владельцем проекта как текущая рабочая. Это не является гарантией совместимости со всеми ESP32. Установщик предназначен только для классической ESP32 4 МБ со стандартной разметкой и сохраняет защитные проверки. Перед обновлением экспортируй сценарий в JSON.</div>
   <label class="checkbox"><input id="ack" type="checkbox" disabled><span>Я сохранил сценарий и понимаю, что обновляю классическую ESP32 Dev Module 4 МБ с проверенной стандартной разметкой. <strong>НЕ использовать для LILYGO T-Energy S3!</strong></span></label>
   <div class="row"><button id="flash" class="action" disabled>Установить прошивку v6.2</button><span id="state" aria-live="polite">Ожидание проверки.</span></div>
   <progress id="progress" value="0" max="100"></progress><p class="muted" id="percentage">0%</p>
