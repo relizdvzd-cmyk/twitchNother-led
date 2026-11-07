@@ -316,8 +316,8 @@
   const blockLabels={
     twitch:'TWITCH · ФОЛЛОВЕРЫ',text:'СВОЙ ТЕКСТ',
     date:'СЕГОДНЯШНЯЯ ДАТА',join:'↔ СОЕДИНЕНИЕ',
-    time:'ЧАСЫ',weekday:'ДЕНЬ НЕДЕЛИ',nick:'НИК TWITCH (старый)',
-    count:'TWITCH · ФОЛЛОВЕРЫ',pixel:'ПИКСЕЛИ / АНИМАЦИЯ'
+    time:'ЧАСЫ',weekday:'ДЕНЬ НЕДЕЛИ',nick:'НИК TWITCH',
+    count:'ЧИСЛО ФОЛЛОВЕРОВ',pixel:'ПИКСЕЛИ / АНИМАЦИЯ'
   };
   function itemName(block){
     if(block.type==='join')return block.value==='NONE'?'Соединить без пробела':'Соединить с пробелом';
@@ -325,6 +325,7 @@
     if(block.type==='time'||block.type==='weekday')return localClock(block.value,block.type);
     if(block.type==='pixel')return 'Рисунок 8×32 · '+block.value.split('.').length+' кадр.';
     if(block.type==='count')return block.value+' · только число';
+    if(block.type==='nick')return block.value+' · только ник';
     return block.value||'Пустой текст';
   }
   function renderList(){
@@ -352,7 +353,7 @@
     $('addText').disabled=n>=MAX_BLOCKS;
     $('addDate').disabled=n>=MAX_BLOCKS;
     $('addTwitch').disabled=n>=MAX_BLOCKS;
-    for(const id of ['addTime','addWeekday','addPixel'])$(id).disabled=n>=MAX_BLOCKS;
+    for(const id of ['addTime','addWeekday','addNick','addCount','addPixel'])$(id).disabled=n>=MAX_BLOCKS;
     $('addJoin').disabled=n>=MAX_BLOCKS||selected>=n-1||
       blocks[selected].type==='join'||blocks[selected].type==='pixel'||
       blocks[selected+1]?.type==='join'||blocks[selected+1]?.type==='pixel';
@@ -366,7 +367,7 @@
       twitch:'Счётчик Twitch',text:'Произвольный текст',
       date:'Сегодняшняя дата',join:'Соединение двух элементов',
       time:'Часы',weekday:'День недели',
-      nick:'Ник Twitch (старый блок)',count:'Счётчик Twitch',
+      nick:'Ник Twitch',count:'Количество фолловеров',
       pixel:'Пиксельная картинка / анимация'
     };
     $('selectedPosition').textContent='№ '+(selected+1);
@@ -374,9 +375,9 @@
     $('twitchSettings').hidden=!['twitch','nick','count'].includes(block.type);
     $('twitchBlockHelp').textContent=block.type==='count'?
       'Показывает только число подписчиков, обновляемое через Wi-Fi.':
-      block.type==='nick'?'Устаревший формат: отдельно имя канала. Для обычной подписи удобнее блок «Свой текст».':
+      block.type==='nick'?'Показывает только актуальный ник выбранного Twitch-канала.':
       'Показывает ник и количество фолловеров вместе.';
-    $('twitchDisplayMode').value=block.type==='count'?'count':'twitch';
+    $('twitchDisplayMode').value=block.type==='count'?'count':block.type==='nick'?'nick':'twitch';
     $('textSettings').hidden=block.type!=='text';
     $('dateSettings').hidden=block.type!=='date';
     $('clockSettings').hidden=!['time','weekday'].includes(block.type);
@@ -462,6 +463,8 @@
     $(focus).focus();
   }
   $('addTwitch').addEventListener('click',()=>addBlock('twitch'));
+  $('addNick').addEventListener('click',()=>addBlock('nick'));
+  $('addCount').addEventListener('click',()=>addBlock('count'));
   $('addText').addEventListener('click',()=>addBlock('text'));
   $('addDate').addEventListener('click',()=>addBlock('date'));
   $('addJoin').addEventListener('click',()=>addBlock('join'));
@@ -474,7 +477,7 @@
   });
   $('twitchDisplayMode').addEventListener('change',e=>{
     if(!['twitch','count','nick'].includes(blocks[selected].type))return;
-    if(!['twitch','count'].includes(e.target.value))return;
+    if(!['twitch','count','nick'].includes(e.target.value))return;
     blocks[selected].type=e.target.value;markDirty();renderBuilder();
   });
   $('itemStreamer').addEventListener('input',e=>{
