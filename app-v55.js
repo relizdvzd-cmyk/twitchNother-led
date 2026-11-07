@@ -849,27 +849,36 @@
   function previewPart(item){
     if(item.type==='text')return item.value||' ';
     if(item.type==='date')return localDate(item.value);
+    if(item.type==='time'||item.type==='weekday')return localClock(item.value,item.type);
+    if(item.type==='nick')return (normalizeStreamer(item.value)||'pwgood').toUpperCase();
+    if(item.type==='count'){
+      const login=normalizeStreamer(item.value)||'pwgood';
+      return String(counts.get(login)??'123456');
+    }
     if(item.type==='twitch'){
       const login=normalizeStreamer(item.value)||'pwgood';
-      return login.toUpperCase()+': '+(counts.get(login)||'123456');
+      return login.toUpperCase()+': '+(counts.get(login)??'123456');
     }
     return '';
   }
   function currentPreviewMessage(){
     if(blocks[previewIndex]?.type==='join')previewIndex=0;
     let at=previewIndex;
+    if(blocks[at]?.type==='pixel'){previewGroupEnd=at;return '';}
     let message=previewPart(blocks[at]||defaultBlock());
-    while(at+2<blocks.length&&blocks[at+1].type==='join'&&blocks[at+2].type!=='join'){
+    while(at+2<blocks.length&&blocks[at+1].type==='join'&&
+          blocks[at+2].type!=='join'&&blocks[at+2].type!=='pixel'){
       if(blocks[at+1].value==='SPACE')message+=' ';
-      message+=previewPart(blocks[at+2]);
-      at+=2;
+      message+=previewPart(blocks[at+2]);at+=2;
     }
     previewGroupEnd=at;
     return matrixText(message);
   }
   function generatePreview(){
-    const message=currentPreviewMessage();
-    const columns=[];
+    if(blocks[previewIndex]?.type==='pixel'){
+      previewGroupEnd=previewIndex;return [];
+    }
+    const message=currentPreviewMessage(),columns=[];
     for(let i=0;i<32;i++)columns.push(0);
     for(const letter of message){
       const shape=(font[letter]||font['?']).split('/');
@@ -883,24 +892,41 @@
     for(let i=0;i<34;i++)columns.push(0);
     return columns;
   }
+  function showPreviewColumns(columns,offset=0){
+    for(let x=0;x<32;x++){
+      const mask=columns[offset+x]||0;
+      for(let y=0;y<8;y++)dots[y*32+x].classList.toggle('on',Boolean(mask&(1<<y)));
+    }
+  }
   function restartPreview(){
     if(!blocks.length)return;
-    previewIndex=0; // rerender the entire merged scenario from its first group
-    previewColumn=0;previewColumns=generatePreview();
     if(previewTimer)clearTimeout(previewTimer);
+    previewIndex=0;previewColumn=0;previewPixelStartedAt=Date.now();
+    previewColumns=generatePreview();
     previewTick();
   }
   function previewTick(){
-    const columns=previewColumns;
-    for(let x=0;x<32;x++){
-      const mask=columns[previewColumn+x]||0;
-      for(let y=0;y<8;y++)dots[y*32+x].classList.toggle('on',Boolean(mask&(1<<y)));
+    const active=blocks[previewIndex];
+    if(active?.type==='pixel'){
+      const elapsed=Date.now()-previewPixelStartedAt;
+      if(elapsed>=active.pauseMs){
+        previewIndex=(previewIndex+1)%blocks.length;previewColumn=0;
+        previewPixelStartedAt=Date.now();
+        previewColumns=generatePreview();
+        previewTimer=setTimeout(previewTick,50);
+        return;
+      }
+      const frames=active.value.split('.');
+      const number=Math.floor(elapsed/active.speed)%frames.length;
+      showPreviewColumns(decodeFrame(frames[number]));
+      previewTimer=setTimeout(previewTick,Math.min(60,active.speed));
+      return;
     }
+    showPreviewColumns(previewColumns,previewColumn);
     previewColumn++;
-    if(previewColumn+32>=columns.length){
-      previewIndex=(previewGroupEnd+1)%blocks.length;
-      previewColumn=0;
-      previewColumns=generatePreview();
+    if(previewColumn+32>=previewColumns.length){
+      previewIndex=(previewGroupEnd+1)%blocks.length;previewColumn=0;
+      previewPixelStartedAt=Date.now();previewColumns=generatePreview();
     }
     const speed=clamp(blocks[previewIndex]?.speed,35,140,65);
     previewTimer=setTimeout(previewTick,speed);
