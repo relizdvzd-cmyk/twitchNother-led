@@ -1,0 +1,35 @@
+{
+  "available": true,
+  "version": "5.4",
+  "protocol": "esp32-app-only-no-erase-v1",
+  "board": "ESP32",
+  "flash_size": "4MB",
+  "partition_scheme": "default",
+  "app_offset": 65536,
+  "file": "twitch-led-v5.5.bin",
+  "size": 1078816,
+  "sha256": "b280c4e374b38807c60148d5425f40310a235fb11c596036e904bf6111c0114d",
+  "md5": "438b3061a66971161a4ed7696d4de6fd",
+  "partition_table_bytes": 3072,
+  "partition_table_md5": "a039c66cd3488176037b616b7595fe72",
+  "notes": "JOIN соединяет соседние блоки в одну строку; кириллица, дата; V5.4 JOIN OK",
+  "hardware_tested": false,
+  "backup_parts": [
+    {
+      "file": "bootloader-esp32-v5.5.bin",
+      "offset": 4096
+    },
+    {
+      "file": "partitions-esp32-4mb-default-v5.5.bin",
+      "offset": 32768
+    },
+    {
+      "file": "boot_app0-esp32-v5.5.bin",
+      "offset": 57344
+    },
+    {
+      "file": "twitch-led-v5.5.bin",
+      "offset": 65536
+    }
+  ]
+}
