@@ -842,8 +842,8 @@ async function cmd(command,prefix,timeout=10000){
 function onSerialLine(line){
   const s=line.trim();if(!s)return;
   usbLog(s.slice(0,500));
-  if(/^VERSION TWITCHLED 6\.\d+/.test(s)&&/\bSCRIPT1\b/.test(s)){
-    firmwareOK=true;usbStatus("Совместимая прошивка v6 (SCRIPT1)",true);render();
+  if(/^VERSION TWITCHLED 6\.1(?:\s|$)/.test(s)&&/\bSCRIPT2\b/.test(s)){
+    firmwareOK=true;usbStatus("Совместимая прошивка v6.1 (SCRIPT2)",true);render();
   }
   if(pending&&(s.startsWith(pending.prefix)||s.startsWith("ERR"))){
     const p=pending;pending=null;
