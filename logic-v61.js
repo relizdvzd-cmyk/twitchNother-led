@@ -469,7 +469,7 @@ function exprFromAction(node){
   if(!node)return null;
   if(node.kind==="text")return {kind:"text",value:String(node.text||"")};
   if(node.kind==="clock")return {kind:({TIME:"time",DATE:"date",WEEKDAY:"weekday"}[node.mode]||"time"),zone:node.zone||"BERLIN"};
-  if(node.kind==="twitch")return {kind:node.format==="count"?"followers":"nick",login:node.login||"pwgood"};
+  if(node.kind==="twitch")return {kind:"followers",login:node.login||"pwgood"}; // dynamic Twitch metric; nickname reporter is separate
   return null;
 }
 function setSelectedSocket(el){
