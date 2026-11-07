@@ -867,7 +867,7 @@ bool scriptValidLine(const String& s){
   }
   if(kind=="TWITCH"){
     const String v=scriptToken(s,1),format=scriptToken(s,2);
-    return normalizeStreamer(v)==v&&(format=="FULL"||format=="COUNT")&&
+    return v.length()>0&&normalizeStreamer(v)==v&&(format=="FULL"||format=="COUNT")&&
       scriptSpeedPause(s,3)&&scriptToken(s,5)=="";
   }
   if(kind=="CLOCK"){
@@ -884,7 +884,8 @@ bool scriptValidLine(const String& s){
   if(kind=="IF"){
     const String t=scriptToken(s,1);
     if(t=="WIFI")return scriptToken(s,2)=="";
-    if(t=="FOLLOWERS")return normalizeStreamer(scriptToken(s,2))==scriptToken(s,2)&&
+    if(t=="FOLLOWERS")return scriptToken(s,2).length()>0&&
+      normalizeStreamer(scriptToken(s,2))==scriptToken(s,2)&&
       scriptNumber(scriptToken(s,3),0,100000000)&&scriptToken(s,4)=="";
     if(t=="HOUR")return dateZonePOSIX(scriptToken(s,2))&&
       scriptNumber(scriptToken(s,3),0,23)&&scriptToken(s,4)=="";
@@ -1149,7 +1150,8 @@ void scriptTick(){
       String name=scriptToken(line,1);
       uint32_t count=0;
       String num=scriptCachedCount(name,count)?String(count):String("NO DATA");
-      String message=scriptToken(line,2)=="COUNT"?num:String(name).toUpperCase()+": "+num;
+      String upperName=name;upperName.toUpperCase();
+      String message=scriptToken(line,2)=="COUNT"?num:upperName+": "+num;
       showText(message,(uint16_t)scriptToken(line,3).toInt(),(uint16_t)scriptToken(line,4).toInt());
       scriptMode=1;return;
     }
@@ -1192,7 +1194,7 @@ void maybeUpdateScriptFollowers(){
   if(now-bootAt<BOOT_GRACE_MS||now-lastConfigAt<CONFIG_SETTLE_MS||
      now-lastNetworkAt<NETWORK_SPACING_MS)return;
   for(uint8_t i=0;i<scriptFollowCount;i++){
-    if((int32_t)(now-scriptFollow[i].nextAt)<0)return;
+    if((int32_t)(now-scriptFollow[i].nextAt)<0)continue;
     lastNetworkAt=now;
     uint32_t count=0;bool ok=fetchCountFor(scriptFollow[i].name,count);
     scriptFollow[i].nextAt=millis()+(ok?FOLLOWER_UPDATE_MS:ERROR_RETRY_MS);
