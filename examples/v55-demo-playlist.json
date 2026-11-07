@@ -1,0 +1,61 @@
+{
+  "schema": 3,
+  "app": "Twitch LED Builder",
+  "description": "v5.5: text JOIN nick, text JOIN count, clock, weekday, 3-frame heart animation.",
+  "blocks": [
+    {
+      "type": "text",
+      "value": "СТРИМЕР",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "join",
+      "value": "SPACE",
+      "speed": 65,
+      "pauseMs": 0
+    },
+    {
+      "type": "nick",
+      "value": "pwgood",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "text",
+      "value": "ФОЛЛОВЕРОВ:",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "join",
+      "value": "SPACE",
+      "speed": 65,
+      "pauseMs": 0
+    },
+    {
+      "type": "count",
+      "value": "pwgood",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "time",
+      "value": "VLADIVOSTOK",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "weekday",
+      "value": "VLADIVOSTOK",
+      "speed": 65,
+      "pauseMs": 300
+    },
+    {
+      "type": "pixel",
+      "value": "000000000000000000000000060F1F3E3E1F0F06000000000000000000000000.0000000000000000000000000C1E3F7E7E3F1E0C000000000000000000000000.000000000000000000000000060F1F3E3E1F0F06000000000000000000000000",
+      "speed": 350,
+      "pauseMs": 3500
+    }
+  ]
+}
