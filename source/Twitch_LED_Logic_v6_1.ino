@@ -1081,6 +1081,9 @@ void scriptRegisterTemplateFollowers(const String& src){
     start=end+1;
   }
 }
+void scriptRegisterCompareSource(const String& token){
+  if(token.startsWith("FOLLOW@"))scriptRegisterFollower(token.substring(7));
+}
 void scriptCollectFollowers(){
   scriptFollowCount=0;
   for(uint8_t i=0;i<scriptCount;i++){
@@ -1088,7 +1091,15 @@ void scriptCollectFollowers(){
     if(kind=="TWITCH")scriptRegisterFollower(scriptToken(scriptLines[i],1));
     else if(kind=="IF"&&scriptToken(scriptLines[i],1)=="FOLLOWERS")
       scriptRegisterFollower(scriptToken(scriptLines[i],2));
-    else if(kind=="TEXT"){
+    else if(kind=="IFCMP"){
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],2));
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],3));
+    }else if(kind=="IFCMP2"){
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],3));
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],4));
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],6));
+      scriptRegisterCompareSource(scriptToken(scriptLines[i],7));
+    }else if(kind=="TEXT"){
       String decoded;if(b64Decode(scriptToken(scriptLines[i],1),decoded))
         scriptRegisterTemplateFollowers(decoded);
     }
