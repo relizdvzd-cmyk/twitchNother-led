@@ -69,6 +69,16 @@
      <div id="deviceStatus" class="status">● Не подключено</div>
      <div class="row"><button id="usbConnect" class="btn">Подключить</button><button id="usbDisconnect" class="btn quiet" disabled>Отключить</button></div>
      <button id="sendScript" class="btn primary full" disabled>Записать программу на ESP32</button>
+     <div class="row"><button id="stopScript" class="btn quiet full" disabled type="button">■ Остановить логику · вернуться к старому сценарию</button></div>
+     <details class="wifi-setup">
+       <summary>Настроить Wi-Fi на устройстве</summary>
+       <label for="wifiSsid">Имя сети Wi-Fi 2,4 ГГц</label>
+       <input id="wifiSsid" type="text" autocomplete="off" placeholder="Название сети" maxlength="32">
+       <label for="wifiPassword">Пароль</label>
+       <input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Пароль" maxlength="64">
+       <button id="wifiSave" class="btn full" disabled type="button">Сохранить Wi-Fi по USB</button>
+       <p class="hint">Пароль не сохраняется на сайте: он передаётся только ESP32 через выбранный USB-порт.</p>
+     </details>
      <p class="hint">Отправка разрешена только устройству с прошивкой, объявляющей поддержку <code>SCRIPT1</code>. Старые v5.3–v5.5 защищены от несовместимой записи.</p>
      <details><summary>Протокол и диагностика</summary><pre id="usbLog">Нет соединения</pre></details>
    </section>
