@@ -1,0 +1,46 @@
+name: Twitch LED Logic v6.1 - typed comparisons and drag/drop
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/ci-logic-v61.yml'
+      - 'logic-v61.html'
+      - 'logic-v61.css'
+      - 'logic-v61.js'
+      - 'source/Twitch_LED_Logic_v6_1.ino'
+      - 'tests/test_logic_v61.mjs'
+permissions:
+  contents: read
+concurrency:
+  group: twitch-led-logic-v61-ci
+  cancel-in-progress: true
+jobs:
+  test-and-compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run typed comparison and UI drag/drop tests
+        run: node tests/test_logic_v61.mjs
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install Arduino ESP32 core and libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile Logic v6.1 for classic ESP32
+        run: |
+          set -euo pipefail
+          mkdir -p temp/Twitch_LED_Logic_v6_1 out
+          cp source/Twitch_LED_Logic_v6_1.ino temp/Twitch_LED_Logic_v6_1/Twitch_LED_Logic_v6_1.ino
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out temp/Twitch_LED_Logic_v6_1
+          test -s out/Twitch_LED_Logic_v6_1.ino.bin
+      - name: Guard stable releases
+        run: |
+          test -f source/Twitch_LED_Builder_ESP32_v5_5.ino
+          test -f updater-v55.html
+          test -f updater-v6.html
+          grep -q 'SCRIPT2' source/Twitch_LED_Logic_v6_1.ino
