@@ -74,8 +74,6 @@
             <button class="btn" id="addJoin" type="button">＋ Соединение ↔</button>
             <button class="btn" id="addTime" type="button">＋ Часы</button>
             <button class="btn" id="addWeekday" type="button">＋ День недели</button>
-            <button class="btn" id="addNick" type="button">＋ Ник Twitch</button>
-            <button class="btn" id="addCount" type="button">＋ Число фолловеров</button>
             <button class="btn" id="addPixel" type="button">＋ Пиксели / анимация</button>
           </div>
           <div class="builder-layout">
@@ -90,7 +88,12 @@
               <div id="twitchSettings" class="field">
                 <label for="itemStreamer">Логин Twitch-стримера</label>
                 <input class="input" id="itemStreamer" type="text" autocomplete="off" spellcheck="false" placeholder="pwgood или twitch.tv/xqc" maxlength="120">
-                <p class="help" id="twitchBlockHelp">У каждого Twitch-блока свой канал. Показ: <code>PWGOOD: 475070</code>.</p>
+                <label for="twitchDisplayMode">Как показывать Twitch</label>
+                <select class="input" id="twitchDisplayMode">
+                  <option value="twitch">Ник + количество фолловеров</option>
+                  <option value="count">Только количество фолловеров</option>
+                </select>
+                <p class="help" id="twitchBlockHelp">По умолчанию PWGOOD: 475070. Для статичной подписи добавь обычный текст.</p>
               </div>
               <div id="textSettings" class="field" hidden>
                 <label for="itemText">Твой текст</label>
