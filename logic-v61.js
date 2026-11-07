@@ -185,6 +185,60 @@ function select(node,key,opts) {
     "</select>";
 }
 const zoneChoices=Object.keys(zones).map(z=>[z,{BERLIN:"Берлин",MOSCOW:"Москва",VLADIVOSTOK:"Хабаровск",UTC:"UTC"}[z]]);
+function exprField(node,testIndex,side,key,expr,choices=null) {
+  const attrs='data-expr-owner="'+node.id+'" data-expr-index="'+testIndex+
+    '" data-expr-side="'+side+'" data-expr-field="'+key+'"';
+  if(choices)return '<select class="expr-field" '+attrs+'>'+
+    choices.map(([v,label])=>'<option value="'+escapeHtml(v)+'"'+(String(expr[key])===String(v)?' selected':'')+'>'+escapeHtml(label)+'</option>').join("")+
+    '</select>';
+  return '<input class="expr-field" type="'+(key==="value"&&expr.kind==="number"?"number":"text")+
+    '" '+attrs+' value="'+escapeHtml(expr[key]??"")+'"'+
+    (key==="value"&&expr.kind==="number"?' min="-100000" max="100000000" step="1"':'')+'>';
+}
+function renderSocket(node,index,side,expr) {
+  const sel=activeSocket&&activeSocket.id===node.id&&activeSocket.index===index&&activeSocket.side===side;
+  const type=exprType(expr);
+  const opts=REPORTER_KINDS.map(k=>'<option value="'+k+'"'+(k===expr.kind?' selected':'')+'>'+escapeHtml(EXPR_LABELS[k])+'</option>').join("");
+  let extras='';
+  if(["weekday","date","time","hour"].includes(expr.kind))
+    extras=exprField(node,index,side,"zone",expr,zoneChoices);
+  if(["followers","nick"].includes(expr.kind))
+    extras=exprField(node,index,side,"login",expr);
+  if(["text","number"].includes(expr.kind))
+    extras=exprField(node,index,side,"value",expr);
+  if(expr.kind==="bool")
+    extras=exprField(node,index,side,"value",expr,[[true,"ИСТИНА"],[false,"ЛОЖЬ"]]);
+  return '<div class="operand-slot'+(sel?' selected':'')+'" tabindex="0" role="group"'+
+    ' data-socket-owner="'+node.id+'" data-socket-index="'+index+'" data-socket-side="'+side+'"'+
+    ' aria-label="'+(side==="left"?"Левое":"Правое")+' значение для сравнения">'+
+    '<span class="socket-heading">'+(side==="left"?"1 · ПЕРВОЕ ЗНАЧЕНИЕ":"2 · ВТОРОЕ ЗНАЧЕНИЕ")+'</span>'+
+    '<div class="expr-controls"><select class="expr-kind" data-expr-kind="1" data-expr-owner="'+node.id+
+    '" data-expr-index="'+index+'" data-expr-side="'+side+'">'+opts+'</select>'+extras+'</div>'+
+    '<span class="expr-type">'+({text:"Текст",number:"Число",bool:"Истина/ложь"}[type]||"Неверный тип")+
+    ' · перетащи сюда блок</span></div>';
+}
+function renderComparisons(node){
+  const tests=(node.tests||[]).slice(0,2);
+  let out='<div class="condition-wrapper"><div class="condition-heading">◇ СРАВНЕНИЕ ДАННЫХ <span>Перетащи значение в слот</span></div>';
+  for(let i=0;i<tests.length;i++){
+    const test=tests[i];
+    if(i===1)out+='<div class="condition-tools"><span class="join-label">Условия объединяются через</span>'+
+      '<select class="combo-select" data-combine="'+node.id+'">'+
+      '<option value="AND"'+(node.combine!=="OR"?' selected':'')+'>И (оба истинны)</option>'+
+      '<option value="OR"'+(node.combine==="OR"?' selected':'')+'>ИЛИ (хотя бы одно)</option></select></div>';
+    out+='<div class="condition-row" data-test-index="'+i+'">'+
+      renderSocket(node,i,"left",test.left)+
+      '<select class="comp-op" data-comp-op="'+node.id+'" data-comp-index="'+i+'" aria-label="Оператор сравнения">'+
+      COMPARE_OPS.map(([op,label])=>'<option value="'+op+'"'+(test.op===op?' selected':'')+'>'+escapeHtml(label)+'</option>').join("")+
+      '</select>'+renderSocket(node,i,"right",test.right)+'</div>';
+  }
+  out+='<div class="condition-tools">';
+  if(tests.length<2)out+='<button type="button" class="btn-inline" data-cond-action="append" data-cond-node="'+node.id+'">＋ Добавить сравнение (И / ИЛИ)</button>';
+  if(tests.length>1)out+='<button type="button" class="btn-inline danger" data-cond-action="remove" data-cond-node="'+node.id+'">− Убрать второе сравнение</button>';
+  out+='</div></div>';
+  return out;
+}
+
 function nodeClass(n){return ["wait","repeat"].includes(n.kind)?"control":n.kind==="if"?"conditional":"screen"}
 function nodeFields(n){
   const tag=(s)=>'<span class="labelsmall">'+s+'</span>';
@@ -198,12 +252,7 @@ function nodeFields(n){
     tag("кадр")+field(n,"frameMs","normal","number",100,900)+tag("мс")+tag("показ")+field(n,"duration","normal","number",500,9000)+tag("мс");
   if(n.kind==="wait")return field(n,"ms","normal","number",100,30000)+tag("мс");
   if(n.kind==="repeat")return field(n,"times","normal","number",1,10)+tag("раз");
-  if(n.kind==="if"){
-    let out=select(n,"condition",[["wifi","Wi-Fi подключён"],["followers","подписчиков ≥"],["hour","час ≥"]]);
-    if(n.condition==="followers")out+=field(n,"login")+field(n,"threshold","normal","number",0,100000000);
-    if(n.condition==="hour")out+=select(n,"zone",zoneChoices)+field(n,"hour","normal","number",0,23);
-    return out;
-  }
+  if(n.kind==="if")return '<span class="labelsmall">вычислить условие ниже ↓</span>';
   return "";
 }
 function nodeLabel(n){
@@ -238,6 +287,7 @@ function renderNode(n){
     '<button type="button" data-action="remove" data-id="'+n.id+'" title="Удалить">×</button>'+
     '</div></div>';
   if(n.kind==="text")out+='<div class="helptext">Подстановки: {followers:pwgood}, {time:BERLIN}, {date:BERLIN}, {weekday:BERLIN}</div>';
+  if(n.kind==="if")out+=renderComparisons(n);
   if(n.kind==="if"||n.kind==="repeat"){
     out+='<div class="scope"><div class="scope-head">'+(n.kind==="if"?"ТО":"ДЕЙСТВИЯ")+'</div>'+
       renderGroup(n.body,n.id,"body")+'</div>';
