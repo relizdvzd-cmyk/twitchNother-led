@@ -22,6 +22,7 @@ let active={parent:"root",branch:"root",index:project.steps.length};
 let selectedId=null,pixelEditFrame=0,pixelPainting=false,pixelPaintOn=true;
 let activeSocket=null; // {id,index,side}, used for reporter insertion by click
 let simulation=0,port=null,reader=null,readTask=null,rx="",pending=null,firmwareOK=false,busy=false;
+let versionCheckSeq=0,versionProbeBusy=false,versionReply="";
 const matrixDots=[];
 const escapeHtml=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const int=(n,low,high,alt)=>Number.isFinite(+n)?Math.max(low,Math.min(high,Math.round(+n))):alt;
@@ -445,6 +446,7 @@ function render(){
   $("sendScript").disabled=!firmwareOK||busy||errors.length>0;
   $("stopScript").disabled=!firmwareOK||busy;
   $("wifiSave").disabled=!firmwareOK||busy;
+  $("checkFirmware").disabled=!port||busy||versionProbeBusy;
   $("pixelTools").hidden=!selectedId||getNode(selectedId)?.node.kind!=="pixel";
   if(!$("pixelTools").hidden)renderPixelEditor();
 }
@@ -454,6 +456,7 @@ function updateLight(){const {errors}=validateAndCompile();
   $("sendScript").disabled=!firmwareOK||busy||errors.length>0;
   $("stopScript").disabled=!firmwareOK||busy;
   $("wifiSave").disabled=!firmwareOK||busy;
+  $("checkFirmware").disabled=!port||busy||versionProbeBusy;
 }
 function changeNode(id,key,value){
   const found=getNode(id);if(!found)return;
@@ -865,8 +868,12 @@ async function cmd(command,prefix,timeout=10000){
 function onSerialLine(line){
   const s=line.trim();if(!s)return;
   usbLog(s.slice(0,500));
-  if(/^VERSION TWITCHLED 6\.2(?:\s|$)/.test(s)&&/\bSCRIPT2\b/.test(s)&&/\bLIVE1\b/.test(s)){
-    firmwareOK=true;usbStatus("Совместимая прошивка v6.2 (SCRIPT2 LIVE1)",true);render();
+  if(/^VERSION TWITCHLED(?:\s|$)/.test(s)){
+    versionReply=s;
+    firmwareOK=/^VERSION TWITCHLED 6\.2(?:\s|$)/.test(s)&&/\bSCRIPT2\b/.test(s)&&/\bLIVE1\b/.test(s);
+    if(firmwareOK)usbStatus("Совместимая прошивка v6.2 (SCRIPT2 LIVE1)",true);
+    else usbStatus("Плата ответила: "+s.slice(0,90)+" — несовместимая версия");
+    render(); // Accept a late VERSION answer without reconnecting.
   }
   if(pending&&(s.startsWith(pending.prefix)||s.startsWith("ERR"))){
     const p=pending;pending=null;
@@ -888,6 +895,35 @@ async function serialRead(){
     }
   }catch(e){usbLog("Ошибка чтения: "+e.message)}
 }
+// Web Serial can reset the board on open; check repeatedly rather than assuming
+// a lack of reply after 400 ms means old firmware.
+async function probeFirmware(){
+  if(!port?.writable||busy){usbStatus("Сначала подключи ESP32 через USB");return;}
+  const seq=++versionCheckSeq;
+  versionProbeBusy=true;versionReply="";firmwareOK=false;
+  usbStatus("Запрашиваю VERSION у ESP32...");render();
+  try{
+    for(const delay of [800,1500,2400,3000]){
+      if(seq!==versionCheckSeq||!port?.writable||versionReply)break;
+      usbLog("→ VERSION");
+      await serialSend("VERSION");
+      await pause(delay);
+    }
+    if(seq!==versionCheckSeq||!port)return;
+    if(!versionReply){
+      usbStatus("Нет ответа на VERSION. Нажми EN/RESET на ESP32, затем «Проверить версию»");
+      usbLog("Нет ответа на VERSION: это ещё не доказательство старой прошивки.");
+    }
+  }catch(e){
+    if(seq===versionCheckSeq){
+      usbStatus("Не удалось проверить VERSION: "+e.message);
+      usbLog("Ошибка запроса VERSION: "+e.message);
+    }
+  }finally{
+    if(seq===versionCheckSeq){versionProbeBusy=false;render();}
+  }
+}
+$("checkFirmware").addEventListener("click",probeFirmware);
 $("usbConnect").addEventListener("click",async()=>{
   if(!("serial" in navigator)){usbStatus("Нужен Chrome/Edge с Web Serial");return}
   try{
@@ -897,14 +933,20 @@ $("usbConnect").addEventListener("click",async()=>{
     $("usbConnect").disabled=true;$("usbDisconnect").disabled=false;
     readTask=serialRead();
     await pause(1250);
-    await serialSend("VERSION");await pause(400);
-    if(!firmwareOK)usbStatus("Требуется прошивка v6.2 (SCRIPT2 LIVE1); передача заблокирована");
-  }catch(e){usbStatus("Ошибка USB: "+e.message);try{await port?.close()}catch(_){}port=null}
+    if(port)await probeFirmware();
+  }catch(e){
+    usbStatus("Ошибка USB: "+e.message);
+    const opened=port;port=null;versionCheckSeq++;versionProbeBusy=false;
+    try{await reader?.cancel();if(readTask)await readTask;await opened?.close()}catch(_){}
+    $("usbConnect").disabled=false;$("usbDisconnect").disabled=true;render();
+  }
 });
 $("usbDisconnect").addEventListener("click",async()=>{
-  firmwareOK=false;busy=false;
-  try{await reader?.cancel();if(readTask)await readTask;await port?.close()}catch(_){}
-  port=null;rx="";pending=null;
+  firmwareOK=false;busy=false;versionCheckSeq++;versionProbeBusy=false;versionReply="";
+  // Drop the shared reference before cancelling read, so serialRead's loop exits.
+  const oldPort=port;port=null;
+  try{await reader?.cancel();if(readTask)await readTask;await oldPort?.close()}catch(e){usbLog("USB: "+e.message);}
+  rx="";pending=null;readTask=null;
   $("usbConnect").disabled=false;$("usbDisconnect").disabled=true;
   usbStatus("Не подключено");render();
 });
