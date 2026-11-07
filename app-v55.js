@@ -313,10 +313,18 @@
   $('customCommand').addEventListener('keydown',e=>{if(e.key==='Enter')$('sendCommand').click();});
 
   // --- Builder: add, select, edit, reorder, delete, save ---
-  function itemName(block) {
+  const blockLabels={
+    twitch:'TWITCH · ФОЛЛОВЕРЫ',text:'СВОЙ ТЕКСТ',
+    date:'СЕГОДНЯШНЯЯ ДАТА',join:'↔ СОЕДИНЕНИЕ',
+    time:'ЧАСЫ',weekday:'ДЕНЬ НЕДЕЛИ',nick:'НИК TWITCH',
+    count:'ЧИСЛО ФОЛЛОВЕРОВ',pixel:'ПИКСЕЛИ / АНИМАЦИЯ'
+  };
+  function itemName(block){
     if(block.type==='join')return block.value==='NONE'?'Соединить без пробела':'Соединить с пробелом';
-    return block.type==='twitch'?block.value||'Не указан логин':
-      block.type==='date'?localDate(block.value):block.value||'Пустой текст';
+    if(block.type==='date')return localDate(block.value);
+    if(block.type==='time'||block.type==='weekday')return localClock(block.value,block.type);
+    if(block.type==='pixel')return 'Рисунок 8×32 · '+block.value.split('.').length+' кадр.';
+    return block.value||'Пустой текст';
   }
   function renderList(){
     const list=$('blocksList');list.replaceChildren();
@@ -326,8 +334,7 @@
       card.setAttribute('role','listitem');
       const num=document.createElement('span');num.className='block-number';num.textContent=index+1;
       const main=document.createElement('button');main.type='button';main.className='block-main';main.dataset.action='select';main.dataset.index=index;
-      const type=document.createElement('span');type.className='block-type';type.textContent=block.type==='twitch'?'TWITCH · ФОЛЛОВЕРЫ':block.type==='date'?'СЕГОДНЯШНЯЯ ДАТА':
-        block.type==='join'?'↔ СОЕДИНЕНИЕ':'СВОЙ ТЕКСТ';
+      const type=document.createElement('span');type.className='block-type';type.textContent=blockLabels[block.type]||'ЭЛЕМЕНТ';
       const value=document.createElement('span');value.className='block-value';value.textContent=shorten(itemName(block));
       main.append(type,value);main.title='Открыть настройки элемента';
       const actions=document.createElement('div');actions.className='block-actions';
@@ -344,31 +351,46 @@
     $('addText').disabled=n>=MAX_BLOCKS;
     $('addDate').disabled=n>=MAX_BLOCKS;
     $('addTwitch').disabled=n>=MAX_BLOCKS;
+    for(const id of ['addTime','addWeekday','addNick','addCount','addPixel'])$(id).disabled=n>=MAX_BLOCKS;
     $('addJoin').disabled=n>=MAX_BLOCKS||selected>=n-1||
-      blocks[selected].type==='join'||blocks[selected+1]?.type==='join';
+      blocks[selected].type==='join'||blocks[selected].type==='pixel'||
+      blocks[selected+1]?.type==='join'||blocks[selected+1]?.type==='pixel';
     $('addJoin').title=$('addJoin').disabled?'Выбери первый из двух соседних обычных блоков':'Вставить соединитель после выбранного блока';
     $('removeSelected').disabled=n===1;
   }
   function renderEditor(){
     selected=Math.min(selected,blocks.length-1);
     const block=blocks[selected];
+    const headings={
+      twitch:'Счётчик Twitch',text:'Произвольный текст',
+      date:'Сегодняшняя дата',join:'Соединение двух элементов',
+      time:'Часы',weekday:'День недели',
+      nick:'Ник Twitch',count:'Количество фолловеров',
+      pixel:'Пиксельная картинка / анимация'
+    };
     $('selectedPosition').textContent='№ '+(selected+1);
-    $('editHeading').textContent=block.type==='twitch'?'Счётчик фолловеров Twitch':
-      block.type==='date'?'Сегодняшняя дата':block.type==='join'?'Соединение двух элементов':'Произвольный текст';
-    $('twitchSettings').hidden=block.type!=='twitch';
+    $('editHeading').textContent=headings[block.type]||'Элемент';
+    $('twitchSettings').hidden=!['twitch','nick','count'].includes(block.type);
+    $('twitchBlockHelp').textContent=block.type==='nick'?'Покажет только имя канала (например, PWGOOD).':
+      block.type==='count'?'Покажет только число подписчиков, обновляемое через Wi-Fi.':
+      'Покажет ник и количество подписчиков вместе.';
     $('textSettings').hidden=block.type!=='text';
     $('dateSettings').hidden=block.type!=='date';
+    $('clockSettings').hidden=!['time','weekday'].includes(block.type);
     $('joinSettings').hidden=block.type!=='join';
-    $('timingSettings').hidden=block.type==='join';
+    $('pixelSettings').hidden=block.type!=='pixel';
+    $('timingSettings').hidden=block.type==='join'||block.type==='pixel';
     $('itemJoinSeparator').value=block.type==='join'?block.value:'SPACE';
     $('itemDateZone').value=block.type==='date'?block.value:'BERLIN';
-    $('itemStreamer').value=block.type==='twitch'?block.value:'';
+    $('itemClockZone').value=['time','weekday'].includes(block.type)?block.value:'BERLIN';
+    $('itemStreamer').value=['twitch','nick','count'].includes(block.type)?block.value:'';
     $('itemText').value=block.type==='text'?block.value:'';
     $('itemSpeed').value=block.speed;
     $('speedLabel').textContent=block.speed+' мс';
     $('itemPause').value=String(block.pauseMs);
     if($('itemPause').selectedIndex<0)$('itemPause').value='300';
     $('textBytes').textContent=byteLength($('itemText').value)+' / '+MAX_TEXT_BYTES+' байт';
+    if(block.type==='pixel')renderPixelEditor();
   }
   function renderBuilder(){renderList();renderEditor();updateBuilderButtons();restartPreview();}
   $('blocksList').addEventListener('click',e=>{
@@ -376,6 +398,7 @@
     const index=Number(button.dataset.index),action=button.dataset.action;
     if(index<0||index>=blocks.length)return;
     if(action==='select'){
+      if(selected!==index)pixelEditFrame=0;
       selected=index;renderList();renderEditor();
       $('builderEditor').scrollIntoView({behavior:'smooth',block:'nearest'});
     }else if((action==='up'&&index>0)||(action==='down'&&index<blocks.length-1)){
@@ -383,7 +406,7 @@
       const candidate=blocks.slice();
       [candidate[index],candidate[other]]=[candidate[other],candidate[index]];
       if(!validConnectorPositions(candidate)){
-        banner('Нельзя переместить соединение на край или поставить два соединения рядом.');
+        banner('Соединение должно быть между обычными блоками, но не рядом с пикселями.');
         return;
       }
       blocks=candidate;selected=other;markDirty();renderBuilder();
@@ -397,37 +420,62 @@
     blocks=blocks.filter((b,i,arr)=>b.type!=='join'||
       (i>0&&i+1<arr.length&&arr[i-1].type!=='join'&&arr[i+1].type!=='join'));
     if(!blocks.length)blocks=[defaultBlock()];
-    selected=Math.min(index,blocks.length-1);markDirty();renderBuilder();
+    selected=Math.min(index,blocks.length-1);pixelEditFrame=0;markDirty();renderBuilder();
   }
   function addBlock(type){
     if(blocks.length>=MAX_BLOCKS){banner('Можно добавить не более 12 элементов.');return;}
     if(type==='join') {
-      if(selected>=blocks.length-1||blocks[selected].type==='join'||blocks[selected+1].type==='join'){
-        banner('Сначала выбери первый из двух соседних обычных элементов.');return;
+      if(selected>=blocks.length-1||['join','pixel'].includes(blocks[selected].type)||
+          ['join','pixel'].includes(blocks[selected+1].type)){
+        banner('Выбери первый из двух соседних текстовых/числовых элементов.');return;
       }
       blocks.splice(selected+1,0,{type:'join',value:'SPACE',speed:65,pauseMs:0});
-      selected+=1;markDirty();renderBuilder();$('itemJoinSeparator').focus();
-      return;
+      selected+=1;markDirty();renderBuilder();$('itemJoinSeparator').focus();return;
     }
-    const newBlock=type==='date'?{type,value:'BERLIN',speed:65,pauseMs:300}:type==='text'?{type,value:'Привет, мир!',speed:65,pauseMs:300}:defaultBlock();
-    // Insertion after JOIN is fine (keeps the marker between two contents).
-    blocks.splice(selected+1,0,newBlock);selected+=1;markDirty();renderBuilder();
-    (type==='date'?$('itemDateZone'):type==='text'?$('itemText'):$('itemStreamer')).focus();
+    const relatedLogin=['twitch','nick','count'].includes(blocks[selected].type)?
+      blocks[selected].value:'pwgood';
+    let next=defaultBlock();
+    if(type==='text')next={type,value:'Привет, мир!',speed:65,pauseMs:300};
+    else if(['date','time','weekday'].includes(type))next={type,value:'BERLIN',speed:65,pauseMs:300};
+    else if(['twitch','nick','count'].includes(type))next={type,value:relatedLogin,speed:65,pauseMs:300};
+    else if(type==='pixel')next={type,value:blankFrame(),speed:250,pauseMs:3000};
+    // Never leave PIXEL immediately next to JOIN. Insert after the current joined phrase.
+    let position=selected+1;
+    if(type==='pixel'){
+      if(blocks[selected].type==='join')position++;
+      while(position<blocks.length&&blocks[position].type==='join')position+=2;
+    }
+    const candidate=blocks.slice();candidate.splice(position,0,next);
+    if(!validConnectorPositions(candidate)){
+      banner('Нельзя вставить картинку внутрь соединённой фразы.');return;
+    }
+    blocks=candidate;selected=position;pixelEditFrame=0;
+    markDirty();renderBuilder();
+    const focus=type==='text'?'itemText':
+      ['date'].includes(type)?'itemDateZone':
+      ['time','weekday'].includes(type)?'itemClockZone':
+      type==='pixel'?'pixelGrid':'itemStreamer';
+    $(focus).focus();
   }
   $('addTwitch').addEventListener('click',()=>addBlock('twitch'));
   $('addText').addEventListener('click',()=>addBlock('text'));
   $('addDate').addEventListener('click',()=>addBlock('date'));
   $('addJoin').addEventListener('click',()=>addBlock('join'));
+  $('addTime').addEventListener('click',()=>addBlock('time'));
+  $('addWeekday').addEventListener('click',()=>addBlock('weekday'));
+  $('addNick').addEventListener('click',()=>addBlock('nick'));
+  $('addCount').addEventListener('click',()=>addBlock('count'));
+  $('addPixel').addEventListener('click',()=>addBlock('pixel'));
   $('removeSelected').addEventListener('click',()=>{
     if(blocks.length<=1)return;
     removeBlock(selected);
   });
   $('itemStreamer').addEventListener('input',e=>{
-    if(blocks[selected].type!=='twitch')return;
+    if(!['twitch','nick','count'].includes(blocks[selected].type))return;
     blocks[selected].value=e.target.value;markDirty();renderList();restartPreview();
   });
   $('itemStreamer').addEventListener('blur',()=>{
-    if(blocks[selected].type!=='twitch')return;
+    if(!['twitch','nick','count'].includes(blocks[selected].type))return;
     const normalized=normalizeStreamer($('itemStreamer').value);
     if(normalized){blocks[selected].value=normalized;$('itemStreamer').value=normalized;markDirty();renderList();restartPreview();}
   });
@@ -441,6 +489,10 @@
   });
   $('itemJoinSeparator').addEventListener('change',e=>{
     if(blocks[selected].type!=='join')return;
+    blocks[selected].value=e.target.value;markDirty();renderList();restartPreview();
+  });
+  $('itemClockZone').addEventListener('change',e=>{
+    if(!['time','weekday'].includes(blocks[selected].type))return;
     blocks[selected].value=e.target.value;markDirty();renderList();restartPreview();
   });
   $('itemDateZone').addEventListener('change',e=>{
