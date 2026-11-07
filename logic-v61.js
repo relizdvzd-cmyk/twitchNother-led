@@ -450,18 +450,62 @@ function changeNode(id,key,value){
   n[key]=value;
   persist();updateLight();
 }
-function addToActive(kind){
-  if(countNodes()>=MAX_NODES-3){message("Слишком много блоков — предел "+MAX_NODES);return}
-  try{
-    const list=getList(active.parent,active.branch);
-    const node=newNode(kind);
-    list.splice(Math.min(active.index,list.length),0,node);
-    selectedId=node.id;
-    active.index++;
-    if(maxDepth()>MAX_DEPTH){list.splice(list.indexOf(node),1);throw Error("Слишком глубокая вложенность")}
-    persist();render(); message("Добавлен блок «"+nodeLabel(node)+"»");
-  }catch(e){message(e.message);}
+function setOperand(nodeId,index,side,expr){
+  const found=getNode(nodeId);
+  if(!found||found.node.kind!=="if"||index<0||index>=found.node.tests.length)return;
+  const test=found.node.tests[index];
+  if(!REPORTER_KINDS.includes(expr?.kind))return;
+  test[side]={...newExpr(expr.kind),...expr};
+  const otherSide=side==="left"?"right":"left";
+  if(exprType(test[otherSide])!==exprType(test[side]))
+    test[otherSide]=defaultOther(exprType(test[side]));
+  // Text and boolean comparisons may not use numeric ordering.
+  if(exprType(test.left)!=="number"&&["GT","GTE","LT","LTE"].includes(test.op))test.op="EQ";
+  if(exprType(test.left)!=="text"&&test.op==="CONTAINS")test.op="EQ";
+  activeSocket={id:nodeId,index,side};
+  persist();render();
 }
+function exprFromAction(node){
+  if(!node)return null;
+  if(node.kind==="text")return {kind:"text",value:String(node.text||"")};
+  if(node.kind==="clock")return {kind:({TIME:"time",DATE:"date",WEEKDAY:"weekday"}[node.mode]||"time"),zone:node.zone||"BERLIN"};
+  if(node.kind==="twitch")return {kind:node.format==="count"?"followers":"nick",login:node.login||"pwgood"};
+  return null;
+}
+function setSelectedSocket(el){
+  if(!el)return;
+  activeSocket={id:el.dataset.socketOwner,index:Number(el.dataset.socketIndex),side:el.dataset.socketSide};
+  if(typeof document.querySelectorAll==="function")
+    document.querySelectorAll(".operand-slot").forEach(x=>x.classList.toggle("selected",
+      x.dataset.socketOwner===activeSocket.id&&Number(x.dataset.socketIndex)===activeSocket.index&&
+      x.dataset.socketSide===activeSocket.side));
+}
+function setExpressionField(owner,index,side,key,value,reregister=false){
+  const node=getNode(owner)?.node;
+  if(!node||node.kind!=="if"||!node.tests[index]||!node.tests[index][side])return;
+  const expr=node.tests[index][side];
+  if(key==="zone")expr.zone=safeZone(value);
+  else if(key==="login")expr.login=String(value);
+  else if(key==="value"){
+    expr.value=expr.kind==="bool"?value!=="false":expr.kind==="number"?String(value):value;
+  }
+  persist();updateLight();
+  if(reregister)render();
+}
+function insertAt(kind,parent,branch,index){
+  if(countNodes()>=MAX_NODES-3){message("Превышен лимит блоков: "+MAX_NODES);return;}
+  try{
+    const list=getList(parent,branch);
+    const node=newNode(kind);
+    const pos=Math.min(Math.max(0,index),list.length);
+    list.splice(pos,0,node);
+    if(maxDepth()>MAX_DEPTH){list.splice(pos,1);throw Error("Глубина вложенности не более "+MAX_DEPTH)}
+    active={parent,branch,index:pos+1};
+    selectedId=node.id;persist();render();message("Блок «"+nodeLabel(node)+"» вставлен в программу");
+  }catch(e){message(e.message)}
+}
+
+function addToActive(kind){insertAt(kind,active.parent,active.branch,active.index)}
 function moveNode(id,parent,branch,index){
   const found=getNode(id);if(!found)return;
   try{
@@ -496,43 +540,139 @@ function actionBlock(action,id){
 }
 function message(txt){$("simState").textContent=txt;}
 $("program").addEventListener("click",e=>{
+  const comparison=e.target.closest("button[data-cond-action]");
+  if(comparison){
+    const node=getNode(comparison.dataset.condNode)?.node;
+    if(!node||node.kind!=="if")return;
+    if(comparison.dataset.condAction==="append"&&node.tests.length<2)
+      node.tests.push(makeCompare(newExpr("followers"),newExpr("number")));
+    if(comparison.dataset.condAction==="remove"&&node.tests.length>1)node.tests.pop();
+    persist();render();return;
+  }
+  const socket=e.target.closest(".operand-slot");
+  if(socket){setSelectedSocket(socket);return}
   const btn=e.target.closest("button[data-action]");if(!btn)return;
   const action=btn.dataset.action;
   if(action==="insertHere"){
     active={parent:btn.dataset.parent,branch:btn.dataset.branch,index:Number(btn.dataset.index)};
-    render();message("Выбрано место вставки. Добавь блок из библиотеки слева.");return;
+    render();message("Выбрано место вставки. Нажми или перетащи команду из палитры.");return;
   }
-  if(action==="up"||action==="down"||action==="duplicate"||action==="remove"||action==="editPixel")actionBlock(action,btn.dataset.id);
+  if(["up","down","duplicate","remove","editPixel"].includes(action))actionBlock(action,btn.dataset.id);
 });
 $("program").addEventListener("input",e=>{
+  const field=e.target.closest("input[data-expr-field]");
+  if(field){
+    setExpressionField(field.dataset.exprOwner,Number(field.dataset.exprIndex),field.dataset.exprSide,
+      field.dataset.exprField,field.value,false);return;
+  }
   const inp=e.target.closest("input[data-field]");if(!inp)return;
   changeNode(inp.dataset.id,inp.dataset.field,inp.value);
 });
 $("program").addEventListener("change",e=>{
-  const elem=e.target.closest("[data-field]");if(!elem)return;
+  const el=e.target;
+  const kind=el.closest("[data-expr-kind]");
+  if(kind){
+    setOperand(kind.dataset.exprOwner,Number(kind.dataset.exprIndex),kind.dataset.exprSide,
+      newExpr(kind.value));return;
+  }
+  const field=el.closest("[data-expr-field]");
+  if(field){
+    setExpressionField(field.dataset.exprOwner,Number(field.dataset.exprIndex),field.dataset.exprSide,
+      field.dataset.exprField,field.value,false);
+    render();return;
+  }
+  const op=el.closest("[data-comp-op]");
+  if(op){
+    const n=getNode(op.dataset.compOp)?.node;
+    if(n?.kind==="if"&&n.tests[Number(op.dataset.compIndex)]){
+      n.tests[Number(op.dataset.compIndex)].op=op.value;persist();render();
+    }
+    return;
+  }
+  const combine=el.closest("[data-combine]");
+  if(combine){
+    const n=getNode(combine.dataset.combine)?.node;
+    if(n?.kind==="if"){n.combine=combine.value==="OR"?"OR":"AND";persist();render()}
+    return;
+  }
+  const elem=el.closest("[data-field]");if(!elem)return;
   changeNode(elem.dataset.id,elem.dataset.field,elem.value);
   if(elem.tagName==="SELECT")render();
   else if(elem.type==="number")elem.value=getNode(elem.dataset.id)?.node[elem.dataset.field]??elem.value;
 });
-document.querySelectorAll("[data-add]").forEach(button=>button.addEventListener("click",()=>addToActive(button.dataset.add)));
+document.querySelectorAll("[data-add]").forEach(button=>{
+  button.addEventListener("click",()=>addToActive(button.dataset.add));
+  button.addEventListener("dragstart",e=>{
+    dragged={source:"palette-action",kind:button.dataset.add};
+    e.dataTransfer.effectAllowed="copy";
+    e.dataTransfer.setData("text/plain","action:"+dragged.kind);
+  });
+  button.addEventListener("dragend",clearDrag);
+});
+document.querySelectorAll("[data-reporter]").forEach(button=>{
+  button.addEventListener("click",()=>{
+    if(!activeSocket){message("Выбери ячейку сравнения внутри блока «если»");return;}
+    setOperand(activeSocket.id,activeSocket.index,activeSocket.side,newExpr(button.dataset.reporter));
+  });
+  button.addEventListener("dragstart",e=>{
+    dragged={source:"palette-reporter",kind:button.dataset.reporter};
+    e.dataTransfer.effectAllowed="copy";
+    e.dataTransfer.setData("text/plain","reporter:"+dragged.kind);
+  });
+  button.addEventListener("dragend",clearDrag);
+});
 let dragged=null;
+function clearDrag(){
+  dragged=null;
+  document.querySelectorAll(".dragging,.drop-over").forEach(el=>el.classList.remove("dragging","drop-over"));
+}
 $("program").addEventListener("dragstart",e=>{
   const handle=e.target.closest(".drag-handle");if(!handle)return;
-  dragged=handle.dataset.id;
-  e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",dragged);
+  dragged={source:"node",id:handle.dataset.id};
+  e.dataTransfer.effectAllowed="copyMove";
+  e.dataTransfer.setData("text/plain","node:"+dragged.id);
   handle.closest(".node")?.classList.add("dragging");
 });
-$("program").addEventListener("dragend",()=>{dragged=null;document.querySelectorAll(".dragging,.drop-over").forEach(el=>el.classList.remove("dragging","drop-over"))});
+$("program").addEventListener("dragend",clearDrag);
 $("program").addEventListener("dragover",e=>{
-  const p=e.target.closest(".insert-point");if(!p||!dragged)return;
-  e.preventDefault();p.classList.add("drop-over");
+  if(!dragged)return;
+  const socket=e.target.closest(".operand-slot");
+  if(socket&&(dragged.source==="palette-reporter"||
+      (dragged.source==="node"&&exprFromAction(getNode(dragged.id)?.node)))){
+    e.preventDefault();e.dataTransfer.dropEffect="copy";socket.classList.add("drop-over");return;
+  }
+  const place=e.target.closest(".insert-point");
+  if(place&&["palette-action","node"].includes(dragged.source)){
+    e.preventDefault();e.dataTransfer.dropEffect=dragged.source==="node"?"move":"copy";
+    place.classList.add("drop-over");
+  }
 });
-$("program").addEventListener("dragleave",e=>{e.target.closest(".insert-point")?.classList.remove("drop-over")});
+$("program").addEventListener("dragleave",e=>{
+  const el=e.target.closest(".insert-point,.operand-slot");
+  if(el)el.classList.remove("drop-over");
+});
 $("program").addEventListener("drop",e=>{
-  const p=e.target.closest(".insert-point");if(!p||!dragged)return;
-  e.preventDefault();
-  moveNode(dragged,p.dataset.parent,p.dataset.branch,Number(p.dataset.index));
-  dragged=null;
+  if(!dragged)return;
+  const dropped=dragged;
+  const socket=e.target.closest(".operand-slot");
+  if(socket&&["palette-reporter","node"].includes(dropped.source)){
+    const expr=dropped.source==="palette-reporter"?newExpr(dropped.kind):
+      exprFromAction(getNode(dropped.id)?.node);
+    if(expr){
+      e.preventDefault();
+      setOperand(socket.dataset.socketOwner,Number(socket.dataset.socketIndex),socket.dataset.socketSide,expr);
+      message("Блок-значение вставлен в сравнение");
+      clearDrag();return;
+    }
+  }
+  const place=e.target.closest(".insert-point");
+  if(place&&["palette-action","node"].includes(dropped.source)){
+    e.preventDefault();
+    const parent=place.dataset.parent,branch=place.dataset.branch,index=Number(place.dataset.index);
+    if(dropped.source==="palette-action")insertAt(dropped.kind,parent,branch,index);
+    else moveNode(dropped.id,parent,branch,index);
+    clearDrag();return;
+  }
 });
 $("reset").addEventListener("click",()=>{if(!confirm("Создать новый проект? Сохрани текущий в JSON, если нужен."))return;project=blankProject();selectedId=null;active={parent:"root",branch:"root",index:project.steps.length};persist();render()});
 $("exportBtn").addEventListener("click",()=>{
@@ -643,7 +783,7 @@ async function simulateList(list,token){
   for(const node of list){
     if(!simIsActive(token))return;
     if(node.kind==="if"){
-      $("simState").textContent="Условие: "+node.condition+" → "+(readCondition(node)?"да":"нет")+" (демо)";
+      $("simState").textContent="СРАВНЕНИЕ → "+(readCondition(node)?"истина":"ложь")+" (симуляция)";
       await simulateList(readCondition(node)?node.body:node.otherwise,token);continue;
     }
     if(node.kind==="repeat"){
