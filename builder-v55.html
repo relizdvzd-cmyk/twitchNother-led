@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#09121e">
+  <meta name="description" content="Конструктор Twitch LED для ESP32 8×32 с русским шрифтом, счётчиками Twitch, датой и собственным текстом.">
+  <title>Twitch LED • Конструктор экрана ESP32 v5.5</title>
+  <style>
+    :root { color-scheme:dark; --bg:#09111d; --surface:#111e30; --card:#14243a; --ink:#eaf4ff; --muted:#a7bbcf; --stroke:#30465d; --accent:#7e77ff; --accentlight:#aaa5ff; --green:#74e6b9; --warn:#ffce85; --red:#fc9094; --shadow:0 16px 48px rgba(0,0,0,.18); }
+    * {box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;min-height:100vh;background:radial-gradient(900px 520px at 95% -15%, #24255e60, transparent 80%),var(--bg);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+    button,input{font:inherit} button{cursor:pointer} :focus-visible{outline:2px solid var(--accentlight);outline-offset:3px}
+    .shell{max-width:1060px;margin:0 auto;padding:24px 22px 70px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid #26374f}
+    .brand{display:flex;align-items:center;gap:13px}.brandmark{width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,#564bef,#a458e1);display:grid;place-items:center;box-shadow:0 9px 24px #5039b833;color:#fff;font-weight:850;letter-spacing:-1.5px;font-size:18px}
+    .brand h1{margin:0;line-height:1.2;font-size:23px;letter-spacing:-.5px}.brand p{margin:3px 0 0;color:var(--muted);font-size:13px}
+    .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#758599;margin-right:7px}.dot.on{background:var(--green);box-shadow:0 0 0 4px #74e6b91a}
+    .topstatus{background:#111d2d;padding:9px 13px;border-radius:99px;border:1px solid var(--stroke);font-size:13px;color:var(--muted)}
+    .hero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(245px,.7fr);gap:26px;align-items:center;padding:34px 0 28px}
+    .eyebrow{color:var(--accentlight);font-size:12px;letter-spacing:1.3px;font-weight:800;text-transform:uppercase}
+    h2{letter-spacing:-.5px;line-height:1.15;font-size:24px;margin:10px 0 10px}.hero h2{font-size:clamp(29px,4.4vw,43px);letter-spacing:-1.4px;max-width:620px}.hero p{color:var(--muted);font-size:15px;max-width:565px;margin:12px 0 0}
+    .led-box{padding:22px 12px;background:linear-gradient(160deg,#0a0f17,#0d1523);border:1px solid #253144;border-radius:18px;box-shadow:inset 0 0 25px #0008, var(--shadow)}
+    .led-label{text-align:center;font-size:10px;letter-spacing:2.3px;color:#7a9bb8;margin:0 0 13px;text-transform:uppercase}.led-grid{display:grid;grid-template-columns:repeat(32,1fr);gap:2.4px;margin:0 auto;max-width:300px}.led-grid i{display:block;width:100%;aspect-ratio:1;background:#392414;border-radius:50%;box-shadow:inset 0 0 0 1px #74280b66}.led-grid i.on{background:#ff7639;box-shadow:0 0 5px #ff552a77}.led-caption{color:#6f879d;font-size:11px;text-align:center;margin:10px 0 0}
+    .notice{background:#172942;border:1px solid #46608a;border-radius:12px;padding:12px 15px;font-size:13px;color:#d4e8ff;margin:0 0 19px;line-height:1.6}.notice:empty{display:none}
+    .layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+    .nav{background:#0d1929;border:1px solid #26394e;border-radius:16px;padding:8px;position:sticky;top:20px}
+    .nav button{width:100%;text-align:left;display:flex;align-items:center;gap:11px;border:0;background:transparent;color:#9eb4cd;padding:14px;border-radius:10px;font-weight:650;margin:2px 0}
+    .nav button.active{background:#28345e;color:#fff}.nav button:not(.active):hover{background:#192940;color:#fff}.nav small{display:block;font-size:11px;font-weight:450;opacity:.75}
+    .nav .num{width:27px;height:27px;border-radius:8px;background:#202f4b;display:grid;place-items:center;font-size:12px;flex-shrink:0}.nav button.active .num{background:#6459d6}
+    .stack{display:grid;gap:16px}.panel{background:var(--surface);border:1px solid #273c53;border-radius:18px;padding:23px;box-shadow:var(--shadow)}.panel h3{font-size:20px;line-height:1.35;margin:0 0 4px;letter-spacing:-.4px}.muted{color:var(--muted)}.panel p{margin:8px 0 13px}.help{font-size:13px;color:var(--muted)}
+    .tab[hidden]{display:none!important}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}.wide{grid-column:1/-1}
+    label{display:block;font-size:13px;font-weight:700;color:#d0dff1;margin-bottom:7px}.input{width:100%;min-height:44px;border:1px solid #3d536f;background:#0c1929;color:#f7fbff;border-radius:10px;padding:10px 12px;outline:none}.input:focus{border-color:var(--accentlight);box-shadow:0 0 0 3px #7770ff33}.input::placeholder{color:#7d93ab}
+    .btn{display:inline-flex;justify-content:center;align-items:center;gap:8px;white-space:normal;text-align:center;padding:11px 16px;background:#293c55;color:#f0f6ff;border:1px solid #536e89;border-radius:11px;font-weight:720;line-height:1.35;min-height:44px}
+    .btn.primary{background:linear-gradient(120deg,#635bef,#8d56e4);border-color:#9489ff;color:white}.btn.ghost{background:transparent;border-color:#3c5370;color:#c5d6ea}.btn:hover:not(:disabled){filter:brightness(1.15)}.btn:disabled{opacity:.39;cursor:not-allowed}
+    .pills{display:flex;gap:9px;flex-wrap:wrap}.pill{display:inline-flex;align-items:center;gap:5px;background:#1e3049;border:1px solid #334b67;border-radius:40px;padding:6px 10px;color:#c6daeb;font-size:12px}.pill.good{color:var(--green);border-color:#285e53}
+    .note{background:#172b39;border:1px solid #365d68;border-radius:11px;padding:12px 14px;color:#b1f2de;font-size:13px}.note.warning{background:#312718;border-color:#7c5b2c;color:#f5d7a3}.note.danger{background:#321d26;border-color:#92556a;color:#ffcbd2}
+    .field{margin:18px 0}.thin{border:0;border-top:1px solid #293c50;margin:22px 0}
+    pre{border:1px solid #2d4256;background:#090f1c;border-radius:11px;min-height:148px;max-height:320px;overflow:auto;padding:16px;margin:12px 0;color:#9cddb9;white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 Consolas,"Courier New",monospace}
+    .info-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:14px 0}.stat{background:#0d1b2e;border:1px solid #253c55;border-radius:11px;padding:13px}.stat small{display:block;color:#9cb1c4;font-size:12px}.stat strong{display:block;font-size:19px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;margin-top:4px}
+    input[type="file"]{padding:11px 9px;font-size:13px}.check{display:flex;gap:10px;align-items:flex-start;font-size:13px;font-weight:500;color:#bfd2e8;margin:14px 0}.check input{width:18px;height:18px;accent-color:#8273f1;flex-shrink:0;margin-top:3px}
+    .updater{padding:15px;border-radius:12px;border:1px dashed #4c6684;background:#0c1b2d;margin:16px 0 0}.updater esp-web-install-button{--esp-tools-button-color:#7161ea;--esp-tools-button-text-color:white;--esp-tools-button-border-radius:10px}
+    .faint{opacity:.66}.small-link{color:#bfb7ff}.foot{border-top:1px solid #24384c;padding-top:18px;margin-top:28px;color:#90a6bd;font-size:12px;line-height:1.65}
+    @media(max-width:820px){.layout{grid-template-columns:1fr}.nav{position:static;display:grid;grid-template-columns:1fr 1fr;gap:4px}.nav button{padding:9px}.hero{grid-template-columns:1fr 250px}.panel{padding:18px}}
+    @media(max-width:600px){.shell{padding:14px 12px 50px}.hero{grid-template-columns:1fr;gap:18px;padding-top:22px}.led-box{max-width:420px}.split{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}.panel{padding:16px}.brand h1{font-size:20px}.nav .num{display:none}}
+  </style>
+  <link rel="stylesheet" href="builder-v55.css">
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <div class="brand"><div class="brandmark">8×32</div><div><h1>Twitch Followers LED</h1><p>ESP32 · MAX7219 · управление через USB</p></div></div>
+    <div class="topstatus"><span id="connectionDot" class="dot"></span><span id="connectionText">ESP32 не подключена</span></div>
+  </header>
+  <section class="hero">
+    <div><div class="eyebrow">Конструктор · v5.5</div><h2>Создай свою бегущую строку</h2><p>Чередуй счётчики Twitch, сегодняшнюю дату и собственные надписи. Соединяй соседние элементы в одну бегущую строку, меняй их порядок и скорость. Сохраняй сценарий на ESP32 прямо из браузера.</p></div>
+    <div class="led-box"><p class="led-label">Дисплей · 8 × 32</p><div id="ledGrid" class="led-grid" aria-label="Анимированный предпросмотр сценария на светодиодной матрице"></div><p class="led-caption">Анимированный предпросмотр · приближённый шрифт</p></div>
+  </section>
+  <div id="banner" class="notice" role="status"></div>
+  <div class="layout">
+    <nav class="nav" aria-label="Разделы">
+      <button class="active" type="button" data-tab="builder" aria-current="page"><span class="num">01</span><span>Конструктор<small>Очередь и настройки</small></span></button>
+      <button type="button" data-tab="configure"><span class="num">02</span><span>Устройство<small>USB и Wi-Fi</small></span></button>
+      <button type="button" data-tab="updates"><span class="num">03</span><span>Обновления<small>Прошивка по USB</small></span></button>
+      <button type="button" data-tab="journal"><span class="num">04</span><span>Диагностика<small>Журнал команд</small></span></button>
+    </nav>
+    <main class="stack">
+      <div id="tab-builder" class="tab stack">
+        <section class="panel">
+          <div class="row" style="justify-content:space-between"><div><h3>Конструктор вывода</h3><p class="help">Элементы показываются по очереди слева направо. Нажми на элемент, чтобы изменить его настройки.</p></div><span class="pill">до 12 элементов</span></div>
+          <div class="builder-toolbar row">
+            <button class="btn primary" id="addTwitch" type="button">＋ Счётчик Twitch</button>
+            <button class="btn" id="addText" type="button">＋ Свой текст</button>
+            <button class="btn" id="addDate" type="button">＋ Сегодняшняя дата</button>
+            <button class="btn" id="addJoin" type="button">＋ Соединение ↔</button>
+            <button class="btn" id="addTime" type="button">＋ Часы</button>
+            <button class="btn" id="addWeekday" type="button">＋ День недели</button>
+            <button class="btn" id="addNick" type="button">＋ Ник Twitch</button>
+            <button class="btn" id="addCount" type="button">＋ Число фолловеров</button>
+            <button class="btn" id="addPixel" type="button">＋ Пиксели / анимация</button>
+          </div>
+          <div class="builder-layout">
+            <div class="builder-list-column">
+              <div class="builder-subhead"><span>Последовательность</span><span id="itemCount">1 элемент</span></div>
+              <div id="blocksList" class="blocks-list" role="list" aria-label="Последовательность элементов"></div>
+              <p class="help">Для соединения: выбери левый элемент и нажми «＋ Соединение ↔». Он объединит выбранный и следующий текстовый/числовой блоки в одну прокрутку. Пиксельные картинки отображаются отдельно. Стрелки ↑ ↓ меняют порядок.</p>
+            </div>
+            <div class="builder-editor" id="builderEditor">
+              <div class="builder-subhead"><span>⚙ Настройки элемента</span><span id="selectedPosition">№ 1</span></div>
+              <strong id="editHeading">Счётчик Twitch</strong>
+              <div id="twitchSettings" class="field">
+                <label for="itemStreamer">Логин Twitch-стримера</label>
+                <input class="input" id="itemStreamer" type="text" autocomplete="off" spellcheck="false" placeholder="pwgood или twitch.tv/xqc" maxlength="120">
+                <p class="help" id="twitchBlockHelp">У каждого Twitch-блока свой канал. Показ: <code>PWGOOD: 475070</code>.</p>
+              </div>
+              <div id="textSettings" class="field" hidden>
+                <label for="itemText">Твой текст</label>
+                <textarea class="input text-area" id="itemText" spellcheck="false" rows="4" placeholder="Например: СПАСИБО ЗА ПОДПИСКУ!"></textarea>
+                <div class="row" style="justify-content:space-between"><span class="help">Русские буквы, включая Ё/ё, выводятся без транслитерации на v5.2.</span><span id="textBytes" class="help">0 / 120 байт</span></div>
+              </div>
+              <div id="dateSettings" class="field" hidden>
+                <label for="itemDateZone">Часовой пояс даты</label>
+                <select class="input" id="itemDateZone">
+                  <option value="BERLIN">Берлин / Европа (летнее время автоматически)</option>
+                  <option value="MOSCOW">Москва (UTC+3)</option>
+                  <option value="VLADIVOSTOK">Владивосток / Хабаровск (UTC+10)</option>
+                  <option value="UTC">UTC (+0)</option>
+                </select>
+                <p class="help">Формат <strong>ДД.ММ.ГГГГ</strong>. ESP32 получает время через Wi-Fi и NTP, дата пересчитывается при каждом показе. До синхронизации: <code>--.--.----</code>.</p>
+              </div>
+              <div id="clockSettings" class="field" hidden>
+                <label for="itemClockZone">Часовой пояс</label>
+                <select class="input" id="itemClockZone">
+                  <option value="BERLIN">Берлин (CET/CEST)</option>
+                  <option value="MOSCOW">Москва (UTC+3)</option>
+                  <option value="VLADIVOSTOK">Хабаровск / Владивосток (UTC+10)</option>
+                  <option value="UTC">UTC</option>
+                </select>
+                <p class="help">Часы: <code>14:35</code>. День недели: <code>СУББОТА</code>. Время получается через Wi-Fi/NTP, до синхронизации показан прочерк.</p>
+              </div>
+              <div id="pixelSettings" class="field" hidden>
+                <div class="builder-subhead"><span>Рисунок 8×32</span><span id="pixelFrameLabel">Кадр 1 из 1</span></div>
+                <p class="help">Рисуй мышкой или пальцем. До 4 кадров на одну анимацию; кадры по очереди показываются без прокрутки.</p>
+                <div class="pixel-grid-scroll"><div id="pixelGrid" class="pixel-grid" role="grid" aria-label="Рисование на матрице 8 на 32"></div></div>
+                <div class="row pixel-actions">
+                  <button type="button" id="pixelPrev" class="btn ghost">◀ Кадр</button>
+                  <button type="button" id="pixelNext" class="btn ghost">Кадр ▶</button>
+                  <button type="button" id="pixelAdd" class="btn">＋ Кадр</button>
+                  <button type="button" id="pixelDelete" class="btn ghost">− Кадр</button>
+                </div>
+                <div class="row pixel-actions">
+                  <button type="button" id="pixelClear" class="btn ghost">Очистить</button>
+                  <button type="button" id="pixelInvert" class="btn ghost">Инвертировать</button>
+                </div>
+                <label for="pixelFrameMs">Смена кадра, мс</label>
+                <input type="range" class="range" id="pixelFrameMs" min="100" max="900" step="50" value="250">
+                <p class="help" id="pixelFrameMsLabel">250 мс</p>
+                <label for="pixelDurationMs">Длительность показа рисунка, мс</label>
+                <select class="input" id="pixelDurationMs">
+                  <option value="1000">1 секунда</option><option value="2000">2 секунды</option>
+                  <option value="3000">3 секунды</option><option value="5000">5 секунд</option>
+                  <option value="7000">7 секунд</option><option value="9000">9 секунд</option>
+                </select>
+              </div>
+              <div id="joinSettings" class="field" hidden>
+                <label for="itemJoinSeparator">Как соединить надписи</label>
+                <select class="input" id="itemJoinSeparator">
+                  <option value="SPACE">С одним пробелом</option>
+                  <option value="NONE">Вплотную, без пробела</option>
+                </select>
+                <p class="help">Элемент «Соединение» расположен между двумя обычными элементами. Они будут показаны подряд в одной прокрутке, с одной общей паузой в конце.</p>
+              </div>
+              <div id="timingSettings">
+              <div class="field"><label for="itemSpeed">Скорость прокрутки <span id="speedLabel" class="muted">65 мс</span></label><input type="range" id="itemSpeed" min="35" max="140" step="5" value="65" class="range"><p class="help">Меньше значение — быстрее.</p></div>
+              <div class="field"><label for="itemPause">Пауза между прокрутками</label><select class="input" id="itemPause"><option value="0">Без паузы</option><option value="300">0,3 секунды</option><option value="600">0,6 секунды</option><option value="1000">1 секунда</option><option value="1500">1,5 секунды</option><option value="2500">2,5 секунды</option></select></div>
+              </div>
+              <div class="row"><button id="removeSelected" class="btn ghost" type="button">Удалить элемент</button></div>
+            </div>
+          </div>
+          <hr class="thin">
+          <div class="row builder-bottom-actions">
+            <button id="builderConnect" type="button" class="btn">Подключить ESP32</button>
+            <button id="savePlaylist" type="button" class="btn primary" disabled>Сохранить сценарий на ESP32</button>
+            <button id="reloadPlaylist" type="button" class="btn ghost" disabled>Прочитать с ESP32</button>
+          </div>
+          <p class="help" id="playlistState" role="status">Создай сценарий, затем подключи ESP32 с прошивкой v5.2.</p>
+          <div class="row builder-bottom-actions">
+            <button id="exportPlaylist" type="button" class="btn ghost">Скачать копию .json</button>
+            <label class="btn ghost import-label" for="importPlaylist">Загрузить копию .json</label><input id="importPlaylist" type="file" accept=".json,application/json" hidden>
+          </div>
+          <div class="note" style="margin-top:16px">Версия <strong>v5.5</strong> добавляет часы, день недели, отдельный ник Twitch, отдельное число фолловеров и пиксельные рисунки с анимацией до 4 кадров. Старые сценарии остаются совместимы. Для новых блоков нужна прошивка v5.5; на v5.3/v5.4 можно подготовить и экспортировать JSON. <a href="classic-v54.html">Предыдущий конструктор v5.4</a> доступен отдельно.</div>
+        </section>
+      </div>
+      <div id="tab-configure" class="tab stack" hidden>
+        <section class="panel">
+          <h3>Подключение к ESP32</h3>
+          <p class="help">Подключи плату USB-кабелем и закрой «Монитор порта» Arduino IDE. В окне выбора выбери <strong>USB Serial</strong> (например, COM4).</p>
+          <div class="row"><button type="button" id="connect" class="btn primary">Подключить ESP32</button><button type="button" id="disconnect" class="btn ghost" disabled>Отключить</button><span class="pill" id="connectedBadge">Не подключена</span></div>
+          <div class="info-grid"><div class="stat"><small>Первый Twitch-канал</small><strong id="currentStreamer">—</strong></div><div class="stat"><small>Его фолловеры</small><strong id="currentCount">—</strong></div><div class="stat"><small>Wi-Fi</small><strong id="currentWifi">—</strong></div></div>
+          <p id="firmwareInfo" class="help">Версия прошивки: неизвестна</p>
+        </section>
+        <section class="panel">
+          <h3>Сеть Wi-Fi</h3>
+          <div class="split"><div><label for="ssid">Wi-Fi 2,4 ГГц</label><input id="ssid" class="input" type="text" autocomplete="off" placeholder="Имя сети"></div><div><label for="wifiPassword">Пароль Wi-Fi</label><input id="wifiPassword" class="input" type="password" autocomplete="off" placeholder="Пароль"></div></div>
+          <p class="help">Оставь оба поля пустыми, если менять Wi-Fi не нужно. Пароль передаётся только в выбранный USB-порт.</p>
+          <div class="row"><button id="saveWifi" type="button" class="btn primary" disabled>Сохранить Wi-Fi</button><button id="status" type="button" class="btn" disabled>Статус</button><button id="refresh" type="button" class="btn ghost" disabled>Обновить счётчики</button></div>
+        </section>
+      </div>
+      <div id="tab-updates" class="tab stack" hidden>
+        <section class="panel">
+          <h3>Безопасное обновление через USB</h3>
+          <p class="muted">Новый мастер обновления использует <strong>esptool-js</strong> и обновляет только приложение. Перед записью проверяет ESP32, Flash 4 МБ, загрузчик и раздел приложения, а после — контрольную сумму. Команды полной очистки Flash нет.</p>
+          <div class="note warning"><strong>Важно:</strong> сперва сохрани сценарий в JSON во вкладке «Конструктор». Закрой монитор порта и отключи ESP32 в разделе «Устройство». Не отключай USB во время записи. Работает только с классической ESP32 Dev Module, 4 МБ, с разметкой по умолчанию.</div>
+          <div class="row"><a class="btn primary" href="updater-v55.html">Обновить ESP32 до v5.5 · PIXEL</a><a class="btn ghost" href="updater-v54.html">Предыдущая v5.4</a><a class="btn ghost" href="updater.html">Проверенный мастер v5.3</a><a class="btn ghost" href="source/Twitch_LED_Builder_ESP32_v5_5.ino" download>Скачать v5.5 для Arduino IDE</a></div>
+          <p class="help">Обновление v5.5 рассчитано на классическую ESP32 с Flash 4 МБ, как твой текущий рабочий образец. Перед записью сверяется контрольная сумма таблицы разделов. Ранее испытанная v5.3 остаётся доступна отдельно. Для заказанной ESP32-S3 этот установщик НЕ предназначен.</p>
+        </section>
+      </div>
+      <div id="tab-journal" class="tab stack" hidden>
+        <section class="panel"><h3>Журнал ESP32</h3><p class="help">Сообщения с последовательного порта. Если подключения нет, здесь остаются последние записи текущей вкладки.</p><pre id="log" aria-live="polite">Ожидание подключения...</pre><div class="row"><button id="clearLog" class="btn ghost" type="button">Очистить журнал</button><button id="journalStatus" class="btn" disabled type="button">Обновить статус</button></div></section>
+        <section class="panel"><h3>Ручная команда</h3><p class="help">Например, <code>HELP</code> или <code>STATUS</code>. Пароль Wi-Fi сюда не вводи.</p><div class="row"><input id="customCommand" class="input" style="flex:1;min-width:190px" placeholder="STATUS" spellcheck="false"><button id="sendCommand" class="btn" disabled type="button">Отправить</button></div></section>
+      </div>
+      <p class="foot">Страница работает без серверного приложения. Настройки передаются прямо по USB; счётчик обращается к стороннему сервису DecAPI. Для Web Serial и установки прошивок нужен Chrome/Edge на компьютере и HTTPS. Сценарий хранится на ESP32; Wi-Fi остаётся на устройстве, даже когда компьютер отключён.</p>
+    </main>
+  </div>
+</div>
+<script src="app-v55.js?v=5.5.0" defer></script>
+</body>
+</html>
