@@ -94,11 +94,27 @@ function defaults(node){
 function importProject(data){
   if(data&&data.schema===6&&Array.isArray(data.steps)){
     project={schema:6,version:"6.0",steps:data.steps.map(defaults)};
-  }else if(data&&Array.isArray(data.blocks)){ // import older v5 playlist; JOIN -> combined template
+  }else if(data&&Array.isArray(data.blocks)){ // Import old v5 JSON, retaining joined messages.
     const nodes=[],blocks=data.blocks;
+    const content=(b)=>{
+      if(b.type==="text")return String(b.value);
+      if(b.type==="count")return "{followers:"+b.value+"}";
+      if(b.type==="twitch")return String(b.value).toUpperCase()+": {followers:"+b.value+"}";
+      if(b.type==="nick")return String(b.value).toUpperCase();
+      if(["date","time","weekday"].includes(b.type))return "{"+b.type+":"+b.value+"}";
+      return "";
+    };
     for(let i=0;i<blocks.length;i++){
-      const b=blocks[i];
-      if(b.type==="join")continue;
+      const b=blocks[i];if(b.type==="join")continue;
+      if(i+1<blocks.length&&blocks[i+1].type==="join"){
+        const begin=b,parts=[content(b)];
+        while(i+2<blocks.length&&blocks[i+1].type==="join"){
+          const separator=blocks[i+1].value==="NONE"?"":" ";
+          parts.push(separator+content(blocks[i+2]));i+=2;
+        }
+        nodes.push({...newNode("text"),text:parts.join(""),speed:begin.speed,pause:begin.pauseMs});
+        continue;
+      }
       const result=b.type==="text"?{kind:"text",text:String(b.value),speed:b.speed,pause:b.pauseMs}:
         ["twitch","count","nick"].includes(b.type)?{kind:"twitch",login:b.value,format:b.type==="count"?"count":"full",speed:b.speed,pause:b.pauseMs}:
         ["date","time","weekday"].includes(b.type)?{kind:"clock",zone:b.value,mode:b.type.toUpperCase(),speed:b.speed,pause:b.pauseMs}:
@@ -380,14 +396,26 @@ $("pixelGrid").addEventListener("pointerdown",e=>{
   pixelPainting=true;
   const n=getNode(selectedId).node,cols=decodeFrames(n.pixels)[pixelEditFrame];
   pixelPaintOn=!(cols[Number(button.dataset.x)]&(1<<Number(button.dataset.y)));
-  try{e.target.setPointerCapture?.(e.pointerId)}catch(_){}
   paintPixelButton(button,pixelPaintOn);
 });
-$("pixelGrid").addEventListener("pointerover",e=>{if(pixelPainting)paintPixelButton(e.target.closest("button[data-x]"),pixelPaintOn)});
+$("pixelGrid").addEventListener("pointerover",e=>{
+  if(pixelPainting)paintPixelButton(e.target.closest("button[data-x]"),pixelPaintOn);
+});
+$("pixelGrid").addEventListener("pointermove",e=>{
+  if(!pixelPainting||typeof document.elementFromPoint!=="function")return;
+  const b=document.elementFromPoint(e.clientX,e.clientY)?.closest("button[data-x]");
+  if(b&&$("pixelGrid").contains(b))paintPixelButton(b,pixelPaintOn);
+});
 for(const event of ["pointerup","pointercancel","pointerleave"])$("pixelGrid").addEventListener(event,()=>pixelPainting=false);
 function paintPixelButton(b,on){
-  if(!b)return;const x=Number(b.dataset.x),y=Number(b.dataset.y);
-  pixelMutate(frames=>{if(on)frames[pixelEditFrame][x]|=1<<y;else frames[pixelEditFrame][x]&=~(1<<y)});
+  if(!b)return;
+  const x=Number(b.dataset.x),y=Number(b.dataset.y),n=getNode(selectedId)?.node;
+  if(!n||n.kind!=="pixel")return;
+  const frames=decodeFrames(n.pixels);
+  if(on)frames[pixelEditFrame][x]|=1<<y;
+  else frames[pixelEditFrame][x]&=~(1<<y);
+  n.pixels=encodeFrames(frames);
+  b.classList.toggle("on",on);persist();updateLight();
 }
 $("pixelPrev").addEventListener("click",()=>{pixelEditFrame=Math.max(0,pixelEditFrame-1);renderPixelEditor()});
 $("pixelNext").addEventListener("click",()=>{const n=getNode(selectedId)?.node;if(!n)return;pixelEditFrame=Math.min(decodeFrames(n.pixels).length-1,pixelEditFrame+1);renderPixelEditor()});
