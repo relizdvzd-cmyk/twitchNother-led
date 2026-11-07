@@ -418,7 +418,8 @@
     blocks.splice(index,1);
     // Deleting content removes markers that no longer have two neighbors.
     blocks=blocks.filter((b,i,arr)=>b.type!=='join'||
-      (i>0&&i+1<arr.length&&arr[i-1].type!=='join'&&arr[i+1].type!=='join'));
+      (i>0&&i+1<arr.length&&arr[i-1].type!=='join'&&arr[i+1].type!=='join'&&
+       arr[i-1].type!=='pixel'&&arr[i+1].type!=='pixel'));
     if(!blocks.length)blocks=[defaultBlock()];
     selected=Math.min(index,blocks.length-1);pixelEditFrame=0;markDirty();renderBuilder();
   }
