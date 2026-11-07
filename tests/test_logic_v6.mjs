@@ -7,9 +7,21 @@ const app=readFileSync('logic-v6.js','utf8');
 const html=readFileSync('logic-v6.html','utf8');
 const css=readFileSync('logic-v6.css','utf8');
 const fw=readFileSync('source/Twitch_LED_Logic_v6.ino','utf8');
+const guard=readFileSync('firmware-guard-v6.mjs','utf8');
+const updater=readFileSync('updater-v6.js','utf8');
+const updaterHTML=readFileSync('updater-v6.html','utf8');
+assert.ok(guard.includes("twitch-led-v6.0.bin")&&guard.includes("r.version!=='6.0'"));
+assert.ok(guard.includes("assertChipAndFlash")&&guard.includes("assertPartitionDigest"));
+assert.ok(updater.includes("eraseAll:false")&&!updater.includes("eraseAll:true"));
+assert.ok(updater.includes("loader.flashMd5sum(")&&!updater.includes("loader.readFlash("));
+assert.ok(updater.includes("firmware/update-v6.0.json"));
+assert.ok(updaterHTML.includes("LILYGO T-Energy S3"));
+
 new vm.Script(app,{filename:'logic-v6.js'});
 assert.ok(html.includes('logic-v6.js?v=6.0.0'),'Dedicated v6 app must load');
 assert.ok(html.includes('href="./index.html"'),'Fallback v5.5 editor link must remain');
+assert.ok(html.includes("href=\"./updater-v6.html\""),'Separate safe v6 updater must be discoverable');
+
 for(const kind of ['text','twitch','clock','pixel','wait','repeat','if'])
   assert.ok(html.includes('data-add="'+kind+'"'),'Missing '+kind+' palette block');
 for(const name of ['dragstart','dragover','drop','getList(','renderGroup(','validateAndCompile(','simulateList(','SCRIPT BEGIN','SCRIPT COMMIT','SCRIPT RUN'])
