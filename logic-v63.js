@@ -868,16 +868,16 @@ async function serialSend(s){
   const writer=port.writable.getWriter();
   try{await writer.write(enc.encode(s+"\n"))}finally{writer.releaseLock()}
 }
-function waitAck(prefix,timeout=10000){
+function waitAck(prefix,timeout=10000,errorPrefix="ERR"){
   if(pending)throw Error("Не завершена предыдущая команда");
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{if(pending===item){pending=null;reject(Error("Нет ответа: "+prefix))}},timeout);
-    const item={prefix,resolve:x=>{clearTimeout(timer);resolve(x)},reject};
+    const item={prefix,errorPrefix,resolve:x=>{clearTimeout(timer);resolve(x)},reject};
     pending=item;
   });
 }
 async function cmd(command,prefix,timeout=10000){
-  const promise=waitAck(prefix,timeout);
+  const promise=waitAck(prefix,timeout,"ERR "+command.split(" ")[0]);
   await serialSend(command);
   return promise;
 }
@@ -892,7 +892,7 @@ function onSerialLine(line){
     else usbStatus("Плата ответила: "+s.slice(0,90)+" — несовместимая версия");
     render(); // Accept a late VERSION answer without reconnecting.
   }
-  if(pending&&(s.startsWith(pending.prefix)||s.startsWith("ERR"))){
+  if(pending&&(s.startsWith(pending.prefix)||s.startsWith(pending.errorPrefix))){
     const p=pending;pending=null;
     if(s.startsWith("ERR"))p.reject(Error(s));else p.resolve(s);
   }
