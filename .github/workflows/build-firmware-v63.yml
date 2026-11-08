@@ -1,0 +1,128 @@
+name: Build ESP32 v6.3 VIDEO1 MEM1 safe web updater
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'source/Twitch_LED_Logic_v6_3.ino'
+      - 'source/VideoV63.h'
+      - '.github/workflows/build-firmware-v63.yml'
+      - 'tests/test_logic_v63.mjs'
+      - 'logic-v63.js'
+      - 'logic-v63.html'
+      - 'logic-v63.css'
+      - 'firmware-guard-v63.mjs'
+      - 'updater-v63.js'
+      - 'updater-v63.html'
+permissions:
+  contents: write
+concurrency:
+  group: twitch-led-v63-firmware
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify no-erase flashing and MD5 preflight guards
+        run: node tests/test_logic_v63.mjs
+      - uses: arduino/setup-arduino-cli@v2
+      - name: Install ESP32 core 3.3.12 and libraries
+        run: |
+          set -euo pipefail
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install esp32:esp32@3.3.12 --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli lib update-index
+          arduino-cli lib install MD_Parola MD_MAX72XX
+      - name: Compile classic ESP32, 4MB, DIO, default partitions
+        run: |
+          set -euo pipefail
+          mkdir -p temp/Twitch_LED_Logic_v6_3 out
+          cp source/Twitch_LED_Logic_v6_3.ino temp/Twitch_LED_Logic_v6_3/Twitch_LED_Logic_v6_3.ino
+          cp source/VideoV63.h temp/Twitch_LED_Logic_v6_3/VideoV63.h
+          arduino-cli compile --fqbn 'esp32:esp32:esp32:FlashSize=4M,PartitionScheme=default,FlashMode=dio' --output-dir out temp/Twitch_LED_Logic_v6_3
+          ls -lh out
+      - name: Verify images, partition layout, publish APP + sparse backup parts
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, hashlib, pathlib, shutil
+          out=pathlib.Path('out')
+          stem='Twitch_LED_Logic_v6_3.ino'
+          paths={
+            'app': out/(stem+'.bin'),
+            'bootloader': out/(stem+'.bootloader.bin'),
+            'partitions': out/(stem+'.partitions.bin')
+          }
+          for k,p in paths.items(): assert p.is_file() and p.stat().st_size>128,(k,p)
+          core=pathlib.Path.home()/'.arduino15/packages/esp32/hardware/esp32/3.3.12'
+          candidates=list(core.rglob('boot_app0.bin'))
+          assert candidates, 'boot_app0.bin not found'
+          paths['boot_app0']=candidates[0]
+          app=paths['app'].read_bytes()
+          boot=paths['bootloader'].read_bytes()
+          table=paths['partitions'].read_bytes()
+          assert app[0]==0xE9 and boot[0]==0xE9
+          assert 65536<len(app)<0x140000, ('APP too large',len(app))
+          assert len(boot)<0x7000 and table[:2]==b'\xaa\x50' and 192<=len(table)<=0x1000
+          entries=[]
+          for i in range(0,len(table)-31,32):
+            if table[i:i+2]!=b'\xaa\x50': break
+            typ,sub=table[i+2],table[i+3]
+            off=int.from_bytes(table[i+4:i+8],'little')
+            size=int.from_bytes(table[i+8:i+12],'little')
+            entries.append((typ,sub,off,size))
+          assert any(t==0 and off==0x10000 and size>=len(app) for t,sub,off,size in entries),entries
+          assert (1,2,0x9000,0x5000) in entries,entries
+          assert (1,0,0xe000,0x2000) in entries,entries
+          target=pathlib.Path('firmware');target.mkdir(exist_ok=True)
+          names={
+            'app':'twitch-led-v6.3.bin',
+            'bootloader':'bootloader-esp32-v6.3.bin',
+            'partitions':'partitions-esp32-4mb-default-v6.3.bin',
+            'boot_app0':'boot_app0-esp32-v6.3.bin'
+          }
+          for kind,filename in names.items(): shutil.copyfile(paths[kind],target/filename)
+          release={
+            'available':True,'version':'6.3',
+            'protocol':'esp32-app-only-no-erase-v1',
+            'board':'ESP32','flash_size':'4MB','partition_scheme':'default',
+            'app_offset':65536,'file':names['app'],'size':len(app),
+            'sha256':hashlib.sha256(app).hexdigest(),
+            'md5':hashlib.md5(app).hexdigest(),
+            'partition_table_bytes':len(table),
+            'partition_table_md5':hashlib.md5(table).hexdigest(),
+            'notes':'Video upload: LittleFS partition, CRC32 transfer, MEM statistics, SCRIPT2 VIDEO PLAY; V6.3 VIDEO',
+            'hardware_tested':False,
+            'backup_parts':[
+              {'file':names['bootloader'],'offset':0x1000},
+              {'file':names['partitions'],'offset':0x8000},
+              {'file':names['boot_app0'],'offset':0xe000},
+              {'file':names['app'],'offset':0x10000}
+            ]
+          }
+          (target/'update-v6.3.json').write_text(json.dumps(release,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+          print(json.dumps(release,ensure_ascii=False,indent=2))
+          PY
+      - name: Commit release to GitHub Pages
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add firmware/twitch-led-v6.3.bin firmware/bootloader-esp32-v6.3.bin firmware/partitions-esp32-4mb-default-v6.3.bin firmware/boot_app0-esp32-v6.3.bin firmware/update-v6.3.json
+          if git diff --cached --quiet; then echo 'Firmware already current'; exit 0; fi
+          git commit -m 'Publish ESP32 v6.3 video/memory logic app and recovery segments'
+          git fetch origin main
+          if ! git rebase origin/main; then
+            git rebase --abort
+            current_source=$(sha256sum source/Twitch_LED_Logic_v6_3.ino | cut -d' ' -f1)
+            head_source=$(git show origin/main:source/Twitch_LED_Logic_v6_3.ino | sha256sum | cut -d' ' -f1)
+            if [ "$current_source" = "$head_source" ] && git show origin/main:firmware/update-v6.3.json | python3 -c "import sys,json; j=json.load(sys.stdin); assert j.get('available') and j.get('partition_table_md5') and j.get('version')=='6.3'"; then
+              echo "Another run published a validated v6.3 package for the same source; skipping duplicate binary."
+              exit 0
+            fi
+            echo "::error::Repository changed during build, and a matching release was not found. Refusing unsafe overwrite."
+            exit 1
+          fi
+          git push origin HEAD:main
