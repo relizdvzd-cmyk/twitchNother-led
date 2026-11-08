@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#10131d">
+<meta name="description" content="Twitch LED Logic — визуальное программирование матрицы MAX7219 в стиле Scratch">
+<title>Twitch LED Logic · Видео и память v6.3</title>
+<link rel="stylesheet" href="./logic-v63.css?v=6.3.0">
+<script src="./logic-v63.js?v=6.3.1" defer></script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><div class="mark">8<span>×</span>32</div>
+    <div><div class="brandname">Twitch LED <b>Logic</b><span class="beta">v6.3 · ЭКСПЕРИМЕНТ</span></div>
+    <div class="subtitle">Программируй своё табло блоками</div></div></div>
+  <div class="top-actions">
+    <a class="btn quiet" href="./index.html">↗ Классический v5.5</a>
+    <button id="reset" class="btn quiet" type="button">Новый проект</button>
+    <button id="importBtn" class="btn quiet" type="button">Импорт JSON</button>
+    <input id="importFile" type="file" accept=".json,application/json" hidden>
+    <button id="exportBtn" class="btn" type="button">↓ Скачать проект</button>
+  </div>
+</header>
+<div class="shell">
+ <aside class="palette panel">
+   <div class="overline">01 / БИБЛИОТЕКА</div><h2>Блоки</h2>
+   <p class="hint">Перетаскивай команды из палитры между блоками, внутрь «если / иначе» и циклов. Бирюзовые блоки-значения перетаскивай прямо в ячейки сравнения. Можно и нажимать на блоки.</p>
+   <div class="category"><span class="catdot c-screen"></span> Вывод на экран</div>
+   <button class="palette-block screen" data-add="text" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">Aa</span> показать текст</button>
+   <button class="palette-block screen" data-add="twitch" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◉</span> счётчик Twitch</button>
+    <button class="palette-block screen" data-add="live" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">●</span> стример: офлайн/онлайн</button>
+   <button class="palette-block screen" data-add="clock" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◷</span> время / дата / день</button>
+   <button class="palette-block screen" data-add="pixel" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">▦</span> пиксельная картинка</button>
+    <button class="palette-block screen" data-add="video" type="button" draggable="true" title="Воспроизвести загруженное видео"><span class="block-icon">▶</span> воспроизвести видео 32×8</button>
+   <div class="category"><span class="catdot c-control"></span> Управление</div>
+   <button class="palette-block control" data-add="wait" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">⏱</span> ждать</button>
+   <button class="palette-block control" data-add="repeat" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">↻</span> повторить N раз</button>
+   <button class="palette-block control" data-add="if" type="button" draggable="true" title="Перетащи в программу или нажми для вставки"><span class="block-icon">◇</span> если / иначе</button>
+   <div class="category"><span class="catdot c-sensor"></span> Данные для сравнения</div>
+   <p class="hint" style="margin-bottom:8px">Перетащи значение в левую или правую ячейку блока «если»:</p>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="weekday">◈ День недели</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="date">◈ Дата</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="time">◈ Время</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="hour">◈ Час (число 0–23)</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="followers">◈ Число фолловеров</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="nick">◈ Ник Twitch</button>
+    <button class="palette-block reporter" type="button" draggable="true" data-reporter="live">◈ Стример онлайн? (да/нет)</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="wifi">◈ Wi-Fi подключён?</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="text">◈ Текст «СУББОТА»</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="number">◈ Число 100</button>
+   <button class="palette-block reporter" type="button" draggable="true" data-reporter="bool">◈ Истина / ложь</button>
+   <div class="condition-list">Сравнения: =, ≠, &gt;, &lt;, ≥, ≤, «содержит». Два сравнения можно объединить через И / ИЛИ.</div>
+   <div class="palette-help">
+     <strong>Как собирать?</strong>
+     <p>Перетащи <b>«если / иначе»</b> в программу, в левую ячейку — <b>«День недели»</b>, в правую — <b>«Текст»</b> и напиши «СУББОТА». Поставь = и вставь в «ТО» надпись «ВЫХОДНЫЕ!!». Из блока вывода Twitch в условие можно перетащить его числовое значение — фолловеров.</p>
+     <p>Кнопки «＋ вставить сюда» и выбор значения в самой ячейке остаются для работы без перетаскивания. Для Twitch-статуса можно собрать условие «Стример онлайн? = ИСТИНА» и вложить в ветку «ТО» нужные команды.</p>
+     <p>Вся программа выполняется циклически. Условия проверяются на ESP32 во время работы.</p>
+   </div>
+ </aside>
+ <main class="workspace">
+   <div class="workspace-head"><div>
+     <div class="overline">02 / ПРОГРАММА</div>
+     <h1>Мой сценарий</h1>
+     <p>Сравнивай любые совместимые значения, комбинируй условия через И / ИЛИ, перетаскивай блоки в нужные места.</p>
+   </div><div class="counter"><b id="nodeCount">0</b><span>команд</span></div></div>
+       <section class="memory-summary panel" aria-label="Память ESP32 и размер сценария">
+      <div class="row info-inline"><strong>Свободно на ESP32 для видео:</strong><b id="fsFree">— (подключи ESP32)</b></div>
+      <div class="storage-meter"><span id="fsBar"></span></div>
+      <div class="row info-inline"><span>Размер сценария (сериализованные команды):</span><b id="scriptSize">—</b></div>
+      <div class="row info-inline"><span>Сценарий на плате:</span><span id="scriptSaved">—</span></div>
+      <div class="row info-inline"><span>Сохранённое видео:</span><span id="deviceClip">—</span></div>
+      <p class="hint">Сценарии сохраняются в NVS, видео — в LittleFS. Их свободное место нельзя складывать. Размер сценария не включает служебные расходы NVS.</p>
+      <div class="row">
+        <button id="refreshMemory" class="btn quiet" type="button">↻ Обновить память</button>
+        <button id="initVideoFs" class="btn quiet" type="button" disabled>Подготовить память для видео</button>
+        <button id="deleteVideo" class="btn quiet" type="button" disabled>Удалить видео с ESP32</button>
+      </div>
+    </section>
+    <div class="program" id="program">
+     <div class="hat">⚡ Когда устройство включено <small>↻ повторять всю программу</small></div>
+     <div id="rootList" class="root-list"></div>
+     <div class="endcap">↻ Начать программу сначала</div>
+   </div>
+   <div id="validation" class="validation" role="status"></div>
+    <section class="panel video-panel" aria-label="Загрузка видео в LED-матрицу">
+      <div class="overline">НОВОЕ В 6.3 / ВИДЕО 32×8</div>
+      <h2>Видео → LED-анимация</h2>
+      <p class="hint">Выбери MP4 или WebM (до 100 МБ). Браузер берёт кадры, переводит их в 1-битный формат и отправляет только готовую анимацию. Максимум 120 секунд или 2400 кадров. Обработка длинного видео может занять время.</p>
+      <label for="videoFile">Исходный файл</label>
+      <input id="videoFile" type="file" accept=".mp4,.webm,.ogv,.mov,video/mp4,video/webm,video/ogg,video/quicktime">
+      <div class="video-settings">
+        <label>Кадров/с <input id="videoFps" type="number" min="2" max="20" value="10"></label>
+        <label>Первые секунд <input id="videoSeconds" type="number" min="1" max="120" value="30"></label>
+        <label>Расположение
+          <select id="videoFit"><option value="crop">Заполнить и обрезать</option><option value="fit">Вписать целиком</option><option value="stretch">Растянуть</option></select>
+        </label>
+        <label>Порог яркости <input id="videoThreshold" type="range" min="0" max="255" value="128"></label>
+        <label class="inline-check"><input id="videoInvert" type="checkbox"> Инвертировать чёрное / белое</label>
+      </div>
+      <div class="row">
+        <button id="convertVideo" class="btn" type="button" disabled>▦ Преобразовать</button>
+        <button id="cancelVideo" class="btn quiet" type="button" disabled>Отменить</button>
+      </div>
+      <div class="video-monitor">
+        <canvas id="videoPreview" width="32" height="8" aria-label="Предпросмотр изображения 32 на 8 пикселей"></canvas>
+        <div class="row">
+          <button id="previewVideo" class="btn quiet" type="button">▶ Предпросмотр</button>
+          <input id="videoScrub" type="range" min="0" max="0" value="0" aria-label="Кадр видео">
+          <span id="videoPosition">0 / 0</span>
+        </div>
+      </div>
+      <div class="row info-inline"><span>Ожидаемый размер на ESP32:</span><b id="videoEstimate">Загрузите и обработайте видео</b></div>
+      <progress id="videoProgress" max="100" value="0"></progress>
+      <p id="videoStatus" class="hint" role="status">Видео пока не выбрано.</p>
+      <button id="uploadVideo" class="btn primary" type="button" disabled>↑ Загрузить анимацию на ESP32</button>
+      <p class="hint">Видео сохраняется отдельно от JSON-сценария. После загрузки добавь блок «воспроизвести видео 32×8». Перезапись защищена проверкой CRC32; старое видео не удаляется до успешного сохранения нового.</p>
+    </section>
+
+ </main>
+ <aside class="right-rail">
+   <section class="panel live-preview">
+     <div class="overline">03 / ПРЕДПРОСМОТР</div><h2>Матрица 8×32</h2>
+     <div class="matrix-wrap"><div id="ledMatrix" class="matrix" aria-label="Матрица 8 на 32"></div></div>
+     <div id="previewLabel" class="preview-label">Пример показа появится здесь</div>
+     <div class="row"><button id="playDemo" class="btn primary">▶ Симуляция</button><button id="stopDemo" class="btn quiet">■ Стоп</button></div>
+     <label for="demoLive" class="hint">Тестовый статус стримера (только для симуляции):</label>
+      <select id="demoLive" class="expr-field" aria-label="Статус для симуляции"><option value="unknown">Нет данных</option><option value="online">Онлайн</option><option value="offline">Офлайн</option></select>
+      <p class="hint">В браузере статус стримера, фолловеры и Wi-Fi моделируются. На ESP32 проверка идёт через HTTPS DecAPI без Twitch API-токенов; данные могут отставать до нескольких минут.</p>
+     <div id="simState" class="sim-state">Симуляция остановлена</div>
+   </section>
+   <section class="panel connect-panel">
+     <div class="overline">04 / УСТРОЙСТВО</div><h2>USB → ESP32</h2>
+     <div id="deviceStatus" class="status">● Не подключено</div>
+     <div class="row"><button id="usbConnect" class="btn">Подключить</button><button id="usbDisconnect" class="btn quiet" disabled>Отключить</button></div>
+      <button id="checkFirmware" class="btn quiet full" disabled type="button" style="margin:8px 0">↻ Проверить версию прошивки</button>
+      <p class="hint">Если USB подключён, но версия не определилась, нажми EN/RESET на ESP32 и «Проверить версию». Точный ответ появится в «Протокол и диагностика».</p>
+     <button id="sendScript" class="btn primary full" disabled>Записать программу на ESP32</button>
+     <div class="row"><button id="stopScript" class="btn quiet full" disabled type="button">■ Остановить логику · вернуться к старому сценарию</button></div>
+     <details class="wifi-setup">
+       <summary>Настроить Wi-Fi на устройстве</summary>
+       <label for="wifiSsid">Имя сети Wi-Fi 2,4 ГГц</label>
+       <input id="wifiSsid" type="text" autocomplete="off" placeholder="Название сети" maxlength="32">
+       <label for="wifiPassword">Пароль</label>
+       <input id="wifiPassword" type="password" autocomplete="new-password" placeholder="Пароль" maxlength="64">
+       <button id="wifiSave" class="btn full" disabled type="button">Сохранить Wi-Fi по USB</button>
+       <p class="hint">Пароль не сохраняется на сайте: он передаётся только ESP32 через выбранный USB-порт.</p>
+     </details>
+     <p class="hint">Отправка программы разрешена только устройству с прошивкой, объявляющей поддержку <code>SCRIPT2 LIVE1 VIDEO1 MEM1</code>. Прошивки v6.2 и старше не принимают новые команды видео: отправка на них заблокирована.</p>
+     <a class="btn quiet full" style="display:block;text-align:center;margin:12px 0;white-space:normal" href="./updater-v63.html">↗ Установщик Logic v6.3 (для ESP32 classic)</a>
+     <p class="hint">Экспериментальная v6.3 для классической ESP32 Dev Module, Flash 4 МБ. Не для LILYGO T-Energy S3. Рабочая v6.2 сохранена; перед обновлением экспортируй сценарий.</p>
+     <details><summary>Протокол и диагностика</summary><pre id="usbLog">Нет соединения</pre></details>
+   </section>
+   <section class="panel pixel-tools" id="pixelTools" hidden>
+     <div class="overline">РЕДАКТОР ГРАФИКИ</div><h2>Пиксели 8×32</h2>
+     <p class="hint">Рисуй прямо в ячейках. Изображение хранится в выбранном блоке.</p>
+     <div id="pixelGrid" class="pixel-grid" aria-label="Редактор пикселей 8 на 32"></div>
+     <div class="row">
+       <button id="pixelPrev" class="btn quiet" type="button">◀</button>
+       <span id="pixelFrameInfo">Кадр 1/1</span>
+       <button id="pixelNext" class="btn quiet" type="button">▶</button>
+       <button id="pixelAddFrame" class="btn quiet" type="button">＋ кадр</button>
+       <button id="pixelRemoveFrame" class="btn quiet" type="button">− кадр</button>
+     </div>
+     <div class="row"><button id="pixelClear" class="btn quiet">Очистить</button><button id="pixelInvert" class="btn quiet">Инвертировать</button></div>
+   </section>
+ </aside>
+</div>
+<footer>Экспериментальная v6.3 · Видео хранится на плате, черновики сценариев — в браузере. <a href="./index.html">Классический v5.5</a> · <a href="./logic-v62.html">Рабочая Logic v6.2</a> остаётся доступным.</footer>
+</body></html>
