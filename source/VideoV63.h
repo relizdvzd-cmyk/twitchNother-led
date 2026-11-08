@@ -69,10 +69,12 @@ void videoInitFS(){
   videoFsReady=LittleFS.begin(false,"/littlefs",10,"spiffs");
   if(!videoFsReady){Serial.println("VIDEO FS UNFORMATTED");return;}
   // Recover the prior clip if power was lost during atomic replacement.
-  if(!LittleFS.exists("/clip.bin")&&LittleFS.exists("/clip.bak"))
-    LittleFS.rename("/clip.bak","/clip.bin");
-  if(LittleFS.exists("/clip.bin")&&LittleFS.exists("/clip.bak"))
-    LittleFS.remove("/clip.bak");
+  if(LittleFS.exists("/clip.bak")){
+    if(!LittleFS.exists("/clip.bin")||!videoReadInfo()){
+      if(LittleFS.exists("/clip.bin"))LittleFS.remove("/clip.bin");
+      LittleFS.rename("/clip.bak","/clip.bin");
+    }else LittleFS.remove("/clip.bak");
+  }
   if(LittleFS.exists("/clip.tmp"))LittleFS.remove("/clip.tmp");
   videoReadInfo();
 }
